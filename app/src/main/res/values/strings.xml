@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">prootz</string>
+    <string name="distro_alpine">Alpine Linux</string>
+    <string name="distro_debian">Debian (Trixie)</string>
+    <string name="distro_ubuntu">Ubuntu (25.10)</string>
+    <string name="install_title">Choose Distribution</string>
+    <string name="install_btn">Install</string>
+    <string name="installing">Installing…</string>
 </resources>

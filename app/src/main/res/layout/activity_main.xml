@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#000000">
+    android:background="@color/bg">
 
     <com.termux.view.TerminalView
         android:id="@+id/terminal_view"
@@ -13,18 +13,37 @@
         android:focusable="true"
         android:focusableInTouchMode="true" />
 
+    <!-- divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider" />
+
+    <!-- Row 1: nav + special -->
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#1a1a1a"
+        android:layout_height="40dp"
+        android:background="@color/surface"
         android:scrollbars="none">
-
         <LinearLayout
-            android:id="@+id/extra_keys"
+            android:id="@+id/keys_row1"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="match_parent"
             android:orientation="horizontal"
             android:paddingHorizontal="4dp" />
+    </HorizontalScrollView>
 
+    <!-- Row 2: symbols + ctrl/alt -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:background="@color/surface2"
+        android:scrollbars="none">
+        <LinearLayout
+            android:id="@+id/keys_row2"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:paddingHorizontal="4dp" />
     </HorizontalScrollView>
 </LinearLayout>

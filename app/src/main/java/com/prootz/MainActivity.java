@@ -6,17 +6,23 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.Spinner;
+import android.widget.TextView;
 
-import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
@@ -29,6 +35,8 @@ public class MainActivity extends Activity {
     private TerminalView mTerminalView;
     private TerminalService mService;
     private int mFontSize = 28;
+    private KeyButton mCtrlBtn, mAltBtn;
+    private boolean mCtrlActive = false, mAltActive = false;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -37,10 +45,7 @@ public class MainActivity extends Activity {
             if (mService.getSession() != null) {
                 mTerminalView.attachSession(mService.getSession());
             } else {
-                RootfsInstaller.install(MainActivity.this, new RootfsInstaller.Callback() {
-                    @Override public void onSuccess() { startSession(); }
-                    @Override public void onError(String msg) { showError(msg); }
-                });
+                checkAndInstall();
             }
         }
         @Override public void onServiceDisconnected(ComponentName name) { mService = null; }
@@ -59,58 +64,197 @@ public class MainActivity extends Activity {
 
         setupExtraKeys();
 
-        Intent serviceIntent = new Intent(this, TerminalService.class);
-        startService(serviceIntent);
-        bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+        Intent svc = new Intent(this, TerminalService.class);
+        startService(svc);
+        bindService(svc, mConnection, Context.BIND_AUTO_CREATE);
     }
 
-    private void setupExtraKeys() {
-        LinearLayout bar = findViewById(R.id.extra_keys);
-        String[][] keys = {
-            {"ESC", "\033"},
-            {"TAB", "\t"},
-            {"CTRL", null},
-            {"ALT", null},
-            {"↑", null},
-            {"↓", null},
-            {"←", null},
-            {"→", null},
-            {"/", "/"},
-            {"-", "-"},
-            {"|", "|"},
-            {"HOME", null},
-            {"END", null},
-            {"PGUP", null},
-            {"PGDN", null},
+    private void checkAndInstall() {
+        RootfsInstaller.Distro installed = RootfsInstaller.installedDistro(this);
+        if (installed != null) {
+            startSession(installed);
+            return;
+        }
+        showInstallDialog();
+    }
+
+    private void showInstallDialog() {
+        View v = LayoutInflater.from(this).inflate(R.layout.dialog_install, null);
+        Spinner spinner = v.findViewById(R.id.distro_spinner);
+        Button btnInstall = v.findViewById(R.id.btn_install);
+        LinearLayout progressSection = v.findViewById(R.id.progress_section);
+        ProgressBar progressBar = v.findViewById(R.id.progress_bar);
+        TextView progressStage = v.findViewById(R.id.progress_stage);
+        TextView progressPct = v.findViewById(R.id.progress_pct);
+        TextView progressDetail = v.findViewById(R.id.progress_detail);
+
+        RootfsInstaller.Distro[] distros = RootfsInstaller.Distro.values();
+        String[] names = new String[distros.length];
+        for (int i = 0; i < distros.length; i++) names[i] = distros[i].displayName;
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+            android.R.layout.simple_spinner_item, names) {
+            @Override
+            public View getView(int pos, View cv, android.view.ViewGroup parent) {
+                TextView tv = (TextView) super.getView(pos, cv, parent);
+                tv.setTextColor(Color.parseColor("#F0F0F0"));
+                tv.setTextSize(14f);
+                return tv;
+            }
+            @Override
+            public View getDropDownView(int pos, View cv, android.view.ViewGroup parent) {
+                TextView tv = (TextView) super.getDropDownView(pos, cv, parent);
+                tv.setTextColor(Color.parseColor("#F0F0F0"));
+                tv.setBackgroundColor(Color.parseColor("#1A2235"));
+                tv.setPadding(32, 24, 32, 24);
+                return tv;
+            }
         };
-        for (String[] key : keys) {
-            Button btn = new Button(this);
-            btn.setText(key[0]);
-            btn.setTextSize(11);
-            btn.setPadding(16, 0, 16, 0);
-            btn.setAllCaps(false);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.MATCH_PARENT);
-            lp.setMargins(2, 2, 2, 2);
-            btn.setLayoutParams(lp);
-            final String label = key[0];
-            final String send = key[1];
-            btn.setOnClickListener(v -> onExtraKey(label, send));
-            bar.addView(btn);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setBackground(getDrawable(R.drawable.spinner_bg));
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setView(v)
+            .setCancelable(false)
+            .create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.progress_bg);
+        }
+        dialog.show();
+
+        btnInstall.setOnClickListener(btn -> {
+            RootfsInstaller.Distro chosen = distros[spinner.getSelectedItemPosition()];
+            spinner.setEnabled(false);
+            btnInstall.setEnabled(false);
+            btnInstall.setText("Installing…");
+            progressSection.setVisibility(View.VISIBLE);
+
+            RootfsInstaller.install(this, chosen,
+                (stage, pct, detail) -> runOnUiThread(() -> {
+                    progressStage.setText(stage);
+                    progressPct.setText(pct >= 0 ? pct + "%" : "");
+                    if (pct >= 0) progressBar.setProgress(pct);
+                    progressDetail.setText(detail);
+                }),
+                new RootfsInstaller.Callback() {
+                    @Override public void onSuccess(RootfsInstaller.Distro d) {
+                        dialog.dismiss();
+                        startSession(d);
+                    }
+                    @Override public void onError(String msg) {
+                        dialog.dismiss();
+                        showError(msg, chosen);
+                    }
+                });
+        });
+    }
+
+    private void startSession(RootfsInstaller.Distro distro) {
+        if (mService == null) return;
+        File filesDir = getFilesDir();
+        File nativeLibDir = new File(getApplicationInfo().nativeLibraryDir);
+        File prootExec = new File(nativeLibDir, "libproot_exec.so");
+        File prootLoader = new File(nativeLibDir, "libproot_loader.so");
+        File rootfsDir = RootfsInstaller.rootfsDir(this, distro);
+        File tmpDir = new File(filesDir, "tmp");
+        tmpDir.mkdirs();
+
+        String shell = new File(rootfsDir, distro.shell.substring(1)).exists()
+            ? distro.shell : "/bin/sh";
+
+        String[] args = {
+            prootExec.getAbsolutePath(),
+            "--root-id", "--kill-on-exit", "--link2symlink", "--sysvipc",
+            "--kernel-release=6.2.1-PRoot-Distro",
+            "-r", rootfsDir.getAbsolutePath(),
+            "-b", "/dev", "-b", "/proc", "-b", "/sys",
+            "-w", "/root",
+            "/usr/bin/env", "-i",
+            "HOME=/root",
+            "USER=root",
+            "LOGNAME=root",
+            "SHELL=" + shell,
+            "TERM=xterm-256color",
+            "COLORTERM=truecolor",
+            "LANG=C.UTF-8",
+            "LC_ALL=C.UTF-8",
+            "TMPDIR=/tmp",
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            shell, "-l"
+        };
+
+        // Pass through Android system env vars (same as termux)
+        java.util.List<String> envList = new java.util.ArrayList<>();
+        envList.add("PROOT_LOADER=" + prootLoader.getAbsolutePath());
+        envList.add("PROOT_TMP_DIR=" + tmpDir.getAbsolutePath());
+        envList.add("TMPDIR=" + tmpDir.getAbsolutePath());
+        for (String key : new String[]{
+            "ANDROID_ROOT", "ANDROID_DATA", "ANDROID_ASSETS", "ANDROID_STORAGE",
+            "ANDROID_RUNTIME_ROOT", "ANDROID_ART_ROOT", "ANDROID_I18N_ROOT",
+            "ANDROID_TZDATA_ROOT", "EXTERNAL_STORAGE", "BOOTCLASSPATH",
+            "DEX2OATBOOTCLASSPATH", "SYSTEMSERVERCLASSPATH"}) {
+            String val = System.getenv(key);
+            if (val != null) envList.add(key + "=" + val);
+        }
+
+        TerminalSession session = mService.createSession(
+            prootExec.getAbsolutePath(), filesDir.getAbsolutePath(),
+            args, envList.toArray(new String[0]), new ProotzSessionClient());
+        mTerminalView.attachSession(session);
+        mService.updateNotification();
+    }
+
+    private void showError(String message, RootfsInstaller.Distro distro) {
+        runOnUiThread(() -> new AlertDialog.Builder(this)
+            .setTitle("Install Error")
+            .setMessage(message)
+            .setPositiveButton("Retry", (d, w) -> {
+                d.dismiss();
+                RootfsInstaller.reset(this, distro);
+                showInstallDialog();
+            })
+            .setNegativeButton("Exit", (d, w) -> finish())
+            .show());
+    }
+
+    // ---- Extra keys ----
+
+    private void setupExtraKeys() {
+        LinearLayout row1 = findViewById(R.id.keys_row1);
+        LinearLayout row2 = findViewById(R.id.keys_row2);
+
+        // Row 1: navigation
+        String[][] r1 = {{"ESC",null},{"TAB","\t"},{"↑",null},{"↓",null},{"←",null},{"→",null},{"HOME",null},{"END",null},{"PGUP",null},{"PGDN",null}};
+        for (String[] k : r1) {
+            KeyButton btn = new KeyButton(this, k[0], true);
+            final String send = k[1];
+            btn.setOnClickListener(v -> onExtraKey(k[0], send));
+            row1.addView(btn);
+        }
+
+        // Row 2: modifiers + symbols
+        mCtrlBtn = new KeyButton(this, "CTRL", false);
+        mAltBtn  = new KeyButton(this, "ALT",  false);
+        mCtrlBtn.setOnClickListener(v -> { mCtrlActive = !mCtrlActive; mCtrlBtn.setActive(mCtrlActive); });
+        mAltBtn.setOnClickListener(v  -> { mAltActive  = !mAltActive;  mAltBtn.setActive(mAltActive); });
+        row2.addView(mCtrlBtn);
+        row2.addView(mAltBtn);
+
+        String[][] r2 = {{"/","/"},{"-","-"},{"_","_"},{"|","|"},{"\\","\\"},{"~","~"},{"\"","\""},{"'","'"},{"[","["},{"]","]"},{"{","{"},{"}","}"},{"#","#"},{"$","$"},{"&","&"},{"*","*"}};
+        for (String[] k : r2) {
+            KeyButton btn = new KeyButton(this, k[0], false);
+            final String send = k[1];
+            btn.setOnClickListener(v -> onExtraKey(k[0], send));
+            row2.addView(btn);
         }
     }
 
     private void onExtraKey(String label, String send) {
         if (mTerminalView.mTermSession == null) return;
         switch (label) {
-            case "CTRL":
-                // Toggle ctrl — handled via next key; for simplicity send ctrl+space as toggle indicator
-                // Real ctrl combos: user holds CTRL then taps another key via onCodePoint
-                // Here we just send a visible caret for now; full sticky-ctrl needs state tracking
-                break;
-            case "ALT":
-                break;
+            case "ESC":
+                mTerminalView.mTermSession.write(new byte[]{0x1b}, 0, 1); break;
             case "↑":
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_DPAD_UP, 0); break;
             case "↓":
@@ -129,62 +273,20 @@ public class MainActivity extends Activity {
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_PAGE_DOWN, 0); break;
             default:
                 if (send != null) {
-                    byte[] b = send.getBytes();
+                    String out = send;
+                    if (mCtrlActive && send.length() == 1) {
+                        char c = send.charAt(0);
+                        if (c >= 'a' && c <= 'z') out = String.valueOf((char)(c - 96));
+                        else if (c >= 'A' && c <= 'Z') out = String.valueOf((char)(c - 64));
+                        mCtrlActive = false; mCtrlBtn.setActive(false);
+                    } else if (mAltActive) {
+                        out = "\033" + send;
+                        mAltActive = false; mAltBtn.setActive(false);
+                    }
+                    byte[] b = out.getBytes();
                     mTerminalView.mTermSession.write(b, 0, b.length);
                 }
         }
-    }
-
-    private void startSession() {
-        if (mService == null) return;
-        File filesDir = getFilesDir();
-        File nativeLibDir = new File(getApplicationInfo().nativeLibraryDir);
-        File prootExec = new File(nativeLibDir, "libproot_exec.so");
-        File prootLoader = new File(nativeLibDir, "libproot_loader.so");
-        File rootfsDir = new File(filesDir, "rootfs/alpine");
-        File tmpDir = new File(filesDir, "tmp");
-        tmpDir.mkdirs();
-
-        String shell = new File(rootfsDir, "bin/ash").exists() ? "/bin/ash" : "/bin/sh";
-
-        String[] args = {
-            prootExec.getAbsolutePath(),
-            "--root-id", "--kill-on-exit", "--link2symlink", "--sysvipc",
-            "--kernel-release=6.2.1-PRoot-Distro",
-            "-r", rootfsDir.getAbsolutePath(),
-            "-b", "/dev", "-b", "/proc", "-b", "/sys",
-            "-w", "/root",
-            "/usr/bin/env", "-i",
-            "HOME=/root",
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            "TERM=xterm-256color", "LANG=C.UTF-8",
-            shell, "-l"
-        };
-        String[] env = {
-            "PROOT_LOADER=" + prootLoader.getAbsolutePath(),
-            "PROOT_TMP_DIR=" + tmpDir.getAbsolutePath(),
-            "TMPDIR=" + tmpDir.getAbsolutePath(),
-        };
-
-        TerminalSession session = mService.createSession(
-            prootExec.getAbsolutePath(), filesDir.getAbsolutePath(),
-            args, env, new ProotzSessionClient());
-        mTerminalView.attachSession(session);
-        mService.updateNotification();
-    }
-
-    private void showError(final String message) {
-        runOnUiThread(() -> new AlertDialog.Builder(this)
-            .setTitle("Bootstrap Error").setMessage(message)
-            .setPositiveButton("Retry", (d, w) -> {
-                d.dismiss();
-                RootfsInstaller.reset(this);
-                RootfsInstaller.install(this, new RootfsInstaller.Callback() {
-                    @Override public void onSuccess() { startSession(); }
-                    @Override public void onError(String msg) { showError(msg); }
-                });
-            })
-            .setNegativeButton("Exit", (d, w) -> finish()).show());
     }
 
     private void showKeyboard() {
@@ -203,7 +305,7 @@ public class MainActivity extends Activity {
         @Override public float onScale(float scale) {
             mFontSize = Math.max(8, Math.min(72, (int)(mFontSize * scale)));
             mTerminalView.setTextSize(mFontSize);
-            return 1f; // reset accumulator
+            return 1f;
         }
         @Override public void onSingleTapUp(MotionEvent e) { showKeyboard(); }
         @Override public boolean shouldBackButtonBeMappedToEscape() { return false; }
@@ -211,11 +313,19 @@ public class MainActivity extends Activity {
         @Override public boolean shouldUseCtrlSpaceWorkaround() { return false; }
         @Override public boolean isTerminalViewSelected() { return true; }
         @Override public void copyModeChanged(boolean copyMode) {}
-        @Override public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession session) { return false; }
+        @Override public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession session) {
+            if (mCtrlActive && keyCode >= KeyEvent.KEYCODE_A && keyCode <= KeyEvent.KEYCODE_Z) {
+                byte ctrl = (byte)(keyCode - KeyEvent.KEYCODE_A + 1);
+                session.write(new byte[]{ctrl}, 0, 1);
+                mCtrlActive = false; if (mCtrlBtn != null) mCtrlBtn.setActive(false);
+                return true;
+            }
+            return false;
+        }
         @Override public boolean onKeyUp(int keyCode, KeyEvent e) { return false; }
         @Override public boolean onLongPress(MotionEvent event) { return false; }
-        @Override public boolean readControlKey() { return false; }
-        @Override public boolean readAltKey() { return false; }
+        @Override public boolean readControlKey() { return mCtrlActive; }
+        @Override public boolean readAltKey() { return mAltActive; }
         @Override public boolean readShiftKey() { return false; }
         @Override public boolean readFnKey() { return false; }
         @Override public boolean onCodePoint(int codePoint, boolean ctrlDown, TerminalSession session) { return false; }

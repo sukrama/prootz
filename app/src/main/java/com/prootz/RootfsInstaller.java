@@ -1,7 +1,7 @@
 package com.prootz;
 
 import android.app.Activity;
-import android.app.ProgressDialog;
+import android.os.Build;
 import android.system.ErrnoException;
 import android.system.Os;
 
@@ -9,128 +9,143 @@ import org.tukaani.xz.XZInputStream;
 
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-/**
- * Downloads and extracts the Alpine proot rootfs on first launch.
- *
- * proot itself is shipped as a jniLibs .so (extracted & made executable by Android), so nothing
- * but the rootfs tarball needs to be fetched here. Extraction is pure-Java (XZ + a small tar
- * reader) so it does not depend on a system tar/xz/ar being present.
- */
 final class RootfsInstaller {
 
+    enum Distro {
+        ALPINE("Alpine Linux",
+            "https://easycli.sh/proot-distro/alpine-%s-pd-v4.37.0.tar.xz",
+            "alpine", "/bin/ash"),
+        DEBIAN("Debian (Trixie)",
+            "https://easycli.sh/proot-distro/debian-trixie-%s-pd-v4.37.0.tar.xz",
+            "debian", "/bin/bash"),
+        UBUNTU("Ubuntu (25.10)",
+            "https://easycli.sh/proot-distro/ubuntu-questing-%s-pd-v4.37.0.tar.xz",
+            "ubuntu", "/bin/bash");
+
+        final String displayName;
+        final String urlTemplate;
+        final String dirName;
+        final String shell;
+
+        Distro(String displayName, String urlTemplate, String dirName, String shell) {
+            this.displayName = displayName;
+            this.urlTemplate = urlTemplate;
+            this.dirName = dirName;
+            this.shell = shell;
+        }
+    }
+
     interface Callback {
-        void onSuccess();
+        void onSuccess(Distro distro);
         void onError(String message);
     }
 
-    private static final String ROOTFS_URL_TEMPLATE =
-        "https://easycli.sh/proot-distro/alpine-%s-pd-v4.37.0.tar.xz";
-    private static final int STRIP_COMPONENTS = 1;
-
-    static File rootfsDir(Activity a) { return new File(a.getFilesDir(), "rootfs/alpine"); }
-    private static File sentinel(Activity a) { return new File(rootfsDir(a), ".installed"); }
-
-    static void reset(Activity a) {
-        deleteRecursive(rootfsDir(a));
+    interface ProgressCallback {
+        void onProgress(String stage, int pct, String detail);
     }
 
-    static void install(final Activity activity, final Callback callback) {
-        if (sentinel(activity).isFile()) {
-            callback.onSuccess();
-            return;
+    static File rootfsDir(Activity a, Distro d) {
+        return new File(a.getFilesDir(), "rootfs/" + d.dirName);
+    }
+
+    static File sentinel(Activity a, Distro d) {
+        return new File(rootfsDir(a, d), ".installed");
+    }
+
+    static Distro installedDistro(Activity a) {
+        for (Distro d : Distro.values()) {
+            if (sentinel(a, d).isFile()) return d;
         }
+        return null;
+    }
 
-        final ProgressDialog progress = new ProgressDialog(activity);
-        progress.setMessage("Installing Alpine rootfs…");
-        progress.setCancelable(false);
-        progress.show();
+    static void reset(Activity a, Distro d) {
+        deleteRecursive(rootfsDir(a, d));
+    }
 
+    static void install(Activity activity, Distro distro, ProgressCallback progress, Callback callback) {
         new Thread(() -> {
             try {
-                doInstall(activity);
-                activity.runOnUiThread(() -> {
-                    dismiss(progress);
-                    callback.onSuccess();
-                });
-            } catch (final Throwable t) {
-                final String msg = describe(t);
-                activity.runOnUiThread(() -> {
-                    dismiss(progress);
-                    callback.onError(msg);
-                });
+                doInstall(activity, distro, progress);
+                activity.runOnUiThread(() -> callback.onSuccess(distro));
+            } catch (Throwable t) {
+                String msg = describe(t);
+                activity.runOnUiThread(() -> callback.onError(msg));
             }
         }, "rootfs-installer").start();
     }
 
-    private static void doInstall(Activity activity) throws Exception {
+    private static void doInstall(Activity activity, Distro distro, ProgressCallback progress) throws Exception {
         File filesDir = activity.getFilesDir();
         File tmpDir = new File(filesDir, "tmp");
         tmpDir.mkdirs();
-        File rootfs = rootfsDir(activity);
+        File rootfs = rootfsDir(activity, distro);
         deleteRecursive(rootfs);
         rootfs.mkdirs();
 
         String arch = getArch();
-        String url = String.format(ROOTFS_URL_TEMPLATE, arch);
-
+        String url = String.format(distro.urlTemplate, arch);
         File archive = new File(tmpDir, "rootfs.tar.xz");
-        download(url, archive);
-        extractTarXz(archive, rootfs, STRIP_COMPONENTS);
+
+        // Download
+        downloadWithProgress(url, archive, progress);
+
+        // Extract
+        extractTarXz(archive, rootfs, 1, progress);
         archive.delete();
 
+        // Patch
+        progress.onProgress("Patching rootfs…", 98, "resolv.conf, hosts, tmp");
         RootfsPatcher.patch(rootfs);
 
-        // Mark complete only after everything succeeded; presence of the file is what matters.
-        sentinel(activity).createNewFile();
+        sentinel(activity, distro).createNewFile();
+        progress.onProgress("Done", 100, "");
     }
 
-    private static String getArch() {
-        String abi = android.os.Build.SUPPORTED_ABIS.length > 0
-            ? android.os.Build.SUPPORTED_ABIS[0] : "arm64-v8a";
-        abi = abi.toLowerCase();
-        if (abi.startsWith("arm64") || abi.contains("aarch64")) return "aarch64";
-        if (abi.startsWith("x86_64") || abi.contains("amd64")) return "x86_64";
-        if (abi.startsWith("armeabi") || abi.startsWith("arm")) return "arm";
-        if (abi.startsWith("x86")) return "i686";
-        return "aarch64";
-    }
-
-    private static void download(String urlStr, File dest) throws Exception {
+    private static void downloadWithProgress(String urlStr, File dest, ProgressCallback cb) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
         conn.setInstanceFollowRedirects(true);
         conn.setConnectTimeout(30000);
         conn.setReadTimeout(120000);
         conn.connect();
         int code = conn.getResponseCode();
-        if (code < 200 || code >= 300) {
-            throw new RuntimeException("Download failed: HTTP " + code + " for " + urlStr);
-        }
+        if (code < 200 || code >= 300)
+            throw new RuntimeException("HTTP " + code + " for " + urlStr);
+        long total = conn.getContentLengthLong();
         try (InputStream in = new BufferedInputStream(conn.getInputStream());
              OutputStream out = new FileOutputStream(dest)) {
             byte[] buf = new byte[65536];
+            long read = 0;
             int n;
-            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+            while ((n = in.read(buf)) != -1) {
+                out.write(buf, 0, n);
+                read += n;
+                int pct = total > 0 ? (int) (read * 90 / total) : -1;
+                String detail = formatBytes(read) + (total > 0 ? " / " + formatBytes(total) : "");
+                cb.onProgress("Downloading…", pct < 0 ? 10 : pct, detail);
+            }
         } finally {
             conn.disconnect();
         }
     }
 
-    // ---- tar.xz extraction (pure Java) ----
+    // ---- tar.xz extraction ----
 
     private static final int BLOCK = 512;
 
-    private static void extractTarXz(File archive, File destDir, int strip) throws Exception {
+    private static void extractTarXz(File archive, File destDir, int strip, ProgressCallback cb) throws Exception {
         try (InputStream in = new BufferedInputStream(
-                new XZInputStream(new BufferedInputStream(new java.io.FileInputStream(archive))))) {
+                new XZInputStream(new BufferedInputStream(new FileInputStream(archive))))) {
             byte[] header = new byte[BLOCK];
-            String longName = null;
-            String longLink = null;
+            String longName = null, longLink = null;
+            int entries = 0;
             while (true) {
                 readFully(in, header, 0, BLOCK);
                 if (isAllZero(header)) break;
@@ -146,7 +161,6 @@ final class RootfsInstaller {
                 if (type == 'L') { longName = readString(in, size); continue; }
                 if (type == 'K') { longLink = readString(in, size); continue; }
                 if (type == 'x' || type == 'g') { skip(in, padded(size)); continue; }
-
                 if (longName != null) { name = longName; longName = null; }
                 if (longLink != null) { linkName = longLink; longLink = null; }
 
@@ -155,37 +169,49 @@ final class RootfsInstaller {
 
                 File outFile = new File(destDir, stripped);
                 switch (type) {
-                    case '5': // directory
+                    case '5':
                         outFile.mkdirs();
                         break;
-                    case '2': // symlink
+                    case '2':
                         outFile.getParentFile().mkdirs();
                         outFile.delete();
                         try { Os.symlink(linkName, outFile.getAbsolutePath()); }
                         catch (ErrnoException ignored) {}
                         break;
-                    case '1': // hardlink
+                    case '1':
                         outFile.getParentFile().mkdirs();
                         outFile.delete();
-                        String target = stripComponents(linkName, strip);
-                        File src = new File(destDir, target != null ? target : linkName);
+                        String tgt = stripComponents(linkName, strip);
+                        File src = new File(destDir, tgt != null ? tgt : linkName);
                         try { Os.link(src.getAbsolutePath(), outFile.getAbsolutePath()); }
-                        catch (ErrnoException e) { copyFile(src, outFile); }
+                        catch (ErrnoException e) { if (src.exists()) copyFile(src, outFile); }
                         break;
-                    case '0':
-                    case '\0':
-                    default: // regular file
+                    default:
                         outFile.getParentFile().mkdirs();
                         try (OutputStream fo = new FileOutputStream(outFile)) {
                             copyExact(in, fo, size);
                         }
                         applyMode(outFile, mode);
                         skip(in, padded(size) - size);
+                        entries++;
+                        cb.onProgress("Extracting…", 90 + Math.min(7, entries / 80),
+                            stripped.length() > 50 ? "…" + stripped.substring(stripped.length() - 48) : stripped);
                         continue;
                 }
                 skip(in, padded(size));
+                entries++;
             }
         }
+    }
+
+    static String getArch() {
+        String abi = Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "arm64-v8a";
+        abi = abi.toLowerCase();
+        if (abi.startsWith("arm64") || abi.contains("aarch64")) return "aarch64";
+        if (abi.startsWith("x86_64") || abi.contains("amd64")) return "x86_64";
+        if (abi.startsWith("armeabi") || abi.startsWith("arm")) return "arm";
+        if (abi.startsWith("x86")) return "i686";
+        return "aarch64";
     }
 
     private static void applyMode(File f, int mode) {
@@ -202,11 +228,8 @@ final class RootfsInstaller {
         for (int i = 0; i < p.length() && seen < count; i++) {
             if (p.charAt(i) == '/') { seen++; idx = i + 1; }
         }
-        if (seen < count) return null;
-        return p.substring(idx);
+        return seen < count ? null : p.substring(idx);
     }
-
-    // ---- low-level helpers ----
 
     private static boolean isAllZero(byte[] b) {
         for (byte x : b) if (x != 0) return false;
@@ -243,7 +266,7 @@ final class RootfsInstaller {
         int read = 0;
         while (read < len) {
             int n = in.read(buf, off + read, len - read);
-            if (n < 0) throw new java.io.EOFException("Unexpected EOF in tar stream");
+            if (n < 0) throw new java.io.EOFException("Unexpected EOF");
             read += n;
         }
     }
@@ -253,14 +276,14 @@ final class RootfsInstaller {
         long rem = size;
         while (rem > 0) {
             int n = in.read(buf, 0, (int) Math.min(buf.length, rem));
-            if (n < 0) throw new java.io.EOFException("Unexpected EOF in tar entry");
+            if (n < 0) throw new java.io.EOFException("Unexpected EOF in entry");
             out.write(buf, 0, n);
             rem -= n;
         }
     }
 
     private static void copyFile(File src, File dst) throws Exception {
-        try (InputStream in = new java.io.FileInputStream(src);
+        try (InputStream in = new FileInputStream(src);
              OutputStream out = new FileOutputStream(dst)) {
             byte[] buf = new byte[65536];
             int n;
@@ -281,7 +304,7 @@ final class RootfsInstaller {
         }
     }
 
-    private static void deleteRecursive(File f) {
+    static void deleteRecursive(File f) {
         if (f.isDirectory()) {
             File[] kids = f.listFiles();
             if (kids != null) for (File c : kids) deleteRecursive(c);
@@ -289,8 +312,10 @@ final class RootfsInstaller {
         f.delete();
     }
 
-    private static void dismiss(ProgressDialog d) {
-        try { d.dismiss(); } catch (RuntimeException ignored) {}
+    private static String formatBytes(long b) {
+        if (b < 1024) return b + " B";
+        if (b < 1024 * 1024) return (b / 1024) + " KB";
+        return String.format("%.1f MB", b / 1048576.0);
     }
 
     private static String describe(Throwable t) {

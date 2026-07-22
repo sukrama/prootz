@@ -42,5 +42,6 @@ android {
 dependencies {
     implementation project(":terminal-view")
     implementation "androidx.annotation:annotation:1.9.0"
+    implementation "androidx.appcompat:appcompat:1.7.0"
     implementation "org.tukaani:xz:1.10"
 }

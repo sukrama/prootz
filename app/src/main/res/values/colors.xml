@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0A0E1A</color>
+    <color name="surface">#111827</color>
+    <color name="surface2">#1A2235</color>
+    <color name="gold">#FFB300</color>
+    <color name="gold_dim">#CC8800</color>
+    <color name="blue">#1565C0</color>
+    <color name="blue_light">#42A5F5</color>
+    <color name="text_primary">#F0F0F0</color>
+    <color name="text_secondary">#9E9E9E</color>
+    <color name="key_bg">#162032</color>
+    <color name="key_border">#1E3050</color>
+    <color name="divider">#1E2D40</color>
+</resources>

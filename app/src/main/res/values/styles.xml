@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ProotzTheme" parent="android:Theme.Material">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:colorAccent">@color/gold</item>
+        <item name="android:colorControlHighlight">#33FFB300</item>
+    </style>
+
+    <style name="KeyButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:minWidth">44dp</item>
+        <item name="android:paddingHorizontal">10dp</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/gold</item>
+        <item name="android:background">@drawable/key_bg</item>
+        <item name="android:allCaps">false</item>
+        <item name="android:gravity">center</item>
+        <item name="android:layout_marginHorizontal">2dp</item>
+        <item name="android:layout_marginVertical">3dp</item>
+    </style>
+
+    <style name="DialogTitle">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textColor">@color/gold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="DialogBody">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <style name="InstallButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/bg</item>
+        <item name="android:background">@drawable/btn_gold</item>
+        <item name="android:allCaps">false</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+</resources>

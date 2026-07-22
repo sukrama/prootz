@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@color/surface">
+
+    <!-- Title -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⚡ prootz"
+        android:textSize="22sp"
+        android:textColor="@color/gold"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Choose a Linux distribution to install"
+        android:textSize="13sp"
+        android:textColor="@color/text_secondary"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Spinner -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="DISTRIBUTION"
+        android:textSize="10sp"
+        android:textColor="@color/blue_light"
+        android:letterSpacing="0.12"
+        android:layout_marginBottom="6dp" />
+
+    <Spinner
+        android:id="@+id/distro_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@drawable/spinner_bg"
+        android:paddingHorizontal="12dp"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Progress section (hidden until install starts) -->
+    <LinearLayout
+        android:id="@+id/progress_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="6dp">
+
+            <TextView
+                android:id="@+id/progress_stage"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Downloading…"
+                android:textSize="12sp"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/progress_pct"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:textSize="12sp"
+                android:textColor="@color/gold"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:progressDrawable="@drawable/progress_drawable"
+            android:max="100"
+            android:progress="0"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/progress_detail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="11sp"
+            android:textColor="@color/text_secondary"
+            android:fontFamily="monospace"
+            android:maxLines="2"
+            android:ellipsize="start" />
+    </LinearLayout>
+
+    <!-- Install button -->
+    <Button
+        android:id="@+id/btn_install"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Install"
+        android:textSize="15sp"
+        android:textColor="@color/bg"
+        android:background="@drawable/btn_gold"
+        android:allCaps="false"
+        android:fontFamily="sans-serif-medium" />
+</LinearLayout>
