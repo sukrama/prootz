@@ -42,6 +42,9 @@ android {
 dependencies {
     implementation project(":terminal-view")
     implementation "androidx.annotation:annotation:1.9.0"
-    implementation "androidx.appcompat:appcompat:1.7.0"
+    implementation("androidx.appcompat:appcompat:1.7.0") {
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"
+        exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+    }
     implementation "org.tukaani:xz:1.10"
 }
