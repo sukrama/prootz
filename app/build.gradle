@@ -23,6 +23,15 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            storeFile file(project.properties['keystore.file'] ?: "../prootz-release.jks")
+            storePassword project.properties['keystore.store.password'] ?: ""
+            keyAlias project.properties['keystore.key.alias'] ?: ""
+            keyPassword project.properties['keystore.key.password'] ?: ""
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix ""
@@ -30,6 +39,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 

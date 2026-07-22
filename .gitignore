@@ -21,6 +21,9 @@ local.properties
 *.swo
 *.swp
 
+# Keystore (use GitHub Secrets in CI, NOT committed)
+prootz-release.jks
+
 # OS-specific files
 .DS_Store
 Thumbs.db
