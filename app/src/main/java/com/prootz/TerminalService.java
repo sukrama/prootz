@@ -70,7 +70,7 @@ public class TerminalService extends Service {
         return new Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("prootz")
             .setContentText("Alpine terminal running")
-            .setSmallIcon(android.R.drawable.ic_menu_terminal)
+            .setSmallIcon(android.R.drawable.ic_menu_send)
             .setContentIntent(openPi)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_delete, "Exit", stopPi)
