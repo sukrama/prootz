@@ -107,6 +107,5 @@
         android:textSize="15sp"
         android:textColor="@color/bg"
         android:background="@drawable/btn_gold"
-        android:allCaps="false"
         android:fontFamily="sans-serif-medium" />
 </LinearLayout>
