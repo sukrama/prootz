@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="ProotzTheme" parent="android:Theme.Material">
+    <style name="ProotzTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:colorBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
-        <item name="android:colorAccent">@color/gold</item>
-        <item name="android:colorControlHighlight">#33FFB300</item>
+        <item name="colorAccent">@color/gold</item>
+        <item name="colorControlHighlight">#33FFB300</item>
     </style>
 
     <style name="KeyButton">
