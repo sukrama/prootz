@@ -55,7 +55,6 @@ jobs:
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_HOME=/usr/local/lib/android/sdk
           ./gradlew assembleRelease \
-            -Pkeystore.file=prootz-release.jks \
             -Pkeystore.store.password="${{ secrets.KEYSTORE_STORE_PASSWORD }}" \
             -Pkeystore.key.alias="${{ secrets.KEYSTORE_ALIAS }}" \
             -Pkeystore.key.password="${{ secrets.KEYSTORE_KEY_PASSWORD }}"
