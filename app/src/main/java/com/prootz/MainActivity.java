@@ -1,17 +1,25 @@
 package com.prootz;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.termux.terminal.TerminalSession;
@@ -28,6 +36,11 @@ public class MainActivity extends Activity {
     private int mFontSize = 28;
     private KeyButton mCtrlBtn, mAltBtn;
     private boolean mCtrlActive = false, mAltActive = false;
+
+    private static final int REQ_POST_NOTIF = 1001;
+    private Dialog mInstallDialog;
+    private TextView mInstStage, mInstPercent, mInstDetail;
+    private ProgressBar mInstBar;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -64,23 +77,86 @@ public class MainActivity extends Activity {
         RootfsInstaller.Distro installed = RootfsInstaller.installedDistro(this);
         if (installed != null) {
             startSession(installed);
+            afterEnterTerminal();
             return;
         }
-        // Auto-install Ubuntu langsung tanpa dialog popup
+        // Auto-install Ubuntu with a live progress dialog.
+        showInstallDialog();
         RootfsInstaller.install(this, RootfsInstaller.Distro.UBUNTU,
-            (stage, pct, detail) -> { /* progress bisa ditambahkan nanti */ },
+            (stage, pct, detail) -> runOnUiThread(() -> updateInstallDialog(stage, pct, detail)),
             new RootfsInstaller.Callback() {
                 @Override public void onSuccess(RootfsInstaller.Distro d) {
+                    // Runs on the UI thread (posted by RootfsInstaller).
+                    dismissInstallDialog();
                     startSession(d);
+                    afterEnterTerminal();
                 }
                 @Override public void onError(String msg) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(MainActivity.this,
-                            "Install failed: " + msg, Toast.LENGTH_LONG).show();
-                        finish();
-                    });
+                    dismissInstallDialog();
+                    Toast.makeText(MainActivity.this,
+                        "Install failed: " + msg, Toast.LENGTH_LONG).show();
+                    finish();
                 }
             });
+    }
+
+    // ---- Install progress dialog ----
+
+    private void showInstallDialog() {
+        Dialog d = new Dialog(this);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        d.setContentView(R.layout.dialog_install);
+        d.setCancelable(false);
+        if (d.getWindow() != null) {
+            d.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            d.getWindow().setLayout(
+                (int) (getResources().getDisplayMetrics().widthPixels * 0.86f),
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        }
+        mInstStage   = d.findViewById(R.id.install_stage);
+        mInstPercent = d.findViewById(R.id.install_percent);
+        mInstBar     = d.findViewById(R.id.install_bar);
+        mInstDetail  = d.findViewById(R.id.install_detail);
+        mInstallDialog = d;
+        d.show();
+    }
+
+    private void updateInstallDialog(String stage, int pct, String detail) {
+        if (mInstallDialog == null) return;
+        if (mInstStage != null && stage != null) mInstStage.setText(stage);
+        if (pct < 0) {
+            if (mInstBar != null) mInstBar.setIndeterminate(true);
+            if (mInstPercent != null) mInstPercent.setText("");
+        } else {
+            if (mInstBar != null) {
+                mInstBar.setIndeterminate(false);
+                mInstBar.setProgress(pct);
+            }
+            if (mInstPercent != null) mInstPercent.setText(pct + "%");
+        }
+        if (mInstDetail != null && detail != null) mInstDetail.setText(detail);
+    }
+
+    private void dismissInstallDialog() {
+        if (mInstallDialog != null) {
+            try { mInstallDialog.dismiss(); } catch (Exception ignored) {}
+            mInstallDialog = null;
+        }
+    }
+
+    /** Called right after the user has entered the terminal (install/extract done). */
+    private void afterEnterTerminal() {
+        maybeRequestNotificationPermission();
+    }
+
+    private void maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},
+                    REQ_POST_NOTIF);
+            }
+        }
     }
 
     private void startSession(RootfsInstaller.Distro distro) {
@@ -135,7 +211,7 @@ public class MainActivity extends Activity {
             prootExec.getAbsolutePath(), filesDir.getAbsolutePath(),
             args, envList.toArray(new String[0]), new ProotzSessionClient());
         mTerminalView.attachSession(session);
-        mService.updateNotification();
+        mService.goForeground();
     }
 
     // ---- Extra keys ----
@@ -217,6 +293,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        dismissInstallDialog();
         try { unbindService(mConnection); } catch (Exception ignored) {}
     }
 

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/dialog_bg"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/install_stage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/installing"
+        style="@style/DialogTitle" />
+
+    <TextView
+        android:id="@+id/install_percent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="0%"
+        android:textColor="@color/gold"
+        android:textSize="34sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <ProgressBar
+        android:id="@+id/install_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="10dp"
+        android:layout_marginTop="6dp"
+        android:max="100"
+        android:progress="0"
+        android:indeterminateTint="@color/gold"
+        android:progressDrawable="@drawable/progress_drawable" />
+
+    <TextView
+        android:id="@+id/install_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:text=""
+        android:maxLines="2"
+        android:ellipsize="middle"
+        style="@style/DialogBody" />
+</LinearLayout>

@@ -127,9 +127,9 @@ final class RootfsInstaller {
             while ((n = in.read(buf)) != -1) {
                 out.write(buf, 0, n);
                 read += n;
-                int pct = total > 0 ? (int) (read * 90 / total) : -1;
+                int pct = total > 0 ? (int) (read * 100 / total) : -1;
                 String detail = formatBytes(read) + (total > 0 ? " / " + formatBytes(total) : "");
-                cb.onProgress("Downloading…", pct < 0 ? 10 : pct, detail);
+                cb.onProgress("Downloading…", pct, detail);
             }
         } finally {
             conn.disconnect();
@@ -141,11 +141,14 @@ final class RootfsInstaller {
     private static final int BLOCK = 512;
 
     private static void extractTarXz(File archive, File destDir, int strip, ProgressCallback cb) throws Exception {
-        try (InputStream in = new BufferedInputStream(
-                new XZInputStream(new BufferedInputStream(new FileInputStream(archive))))) {
+        long archiveSize = archive.length();
+        CountingInputStream counting =
+                new CountingInputStream(new BufferedInputStream(new FileInputStream(archive)));
+        try (InputStream in = new BufferedInputStream(new XZInputStream(counting))) {
             byte[] header = new byte[BLOCK];
             String longName = null, longLink = null;
-            int entries = 0;
+            long entries = 0;
+            long lastEmit = 0;
             while (true) {
                 readFully(in, header, 0, BLOCK);
                 if (isAllZero(header)) break;
@@ -171,12 +174,14 @@ final class RootfsInstaller {
                 switch (type) {
                     case '5':
                         outFile.mkdirs();
+                        skip(in, padded(size));
                         break;
                     case '2':
                         outFile.getParentFile().mkdirs();
                         outFile.delete();
                         try { Os.symlink(linkName, outFile.getAbsolutePath()); }
                         catch (ErrnoException ignored) {}
+                        skip(in, padded(size));
                         break;
                     case '1':
                         outFile.getParentFile().mkdirs();
@@ -185,6 +190,7 @@ final class RootfsInstaller {
                         File src = new File(destDir, tgt != null ? tgt : linkName);
                         try { Os.link(src.getAbsolutePath(), outFile.getAbsolutePath()); }
                         catch (ErrnoException e) { if (src.exists()) copyFile(src, outFile); }
+                        skip(in, padded(size));
                         break;
                     default:
                         outFile.getParentFile().mkdirs();
@@ -193,14 +199,43 @@ final class RootfsInstaller {
                         }
                         applyMode(outFile, mode);
                         skip(in, padded(size) - size);
-                        entries++;
-                        cb.onProgress("Extracting…", 90 + Math.min(7, entries / 80),
-                            stripped.length() > 50 ? "…" + stripped.substring(stripped.length() - 48) : stripped);
-                        continue;
+                        break;
                 }
-                skip(in, padded(size));
+
                 entries++;
+                long now = System.currentTimeMillis();
+                if (now - lastEmit >= 50) {
+                    lastEmit = now;
+                    int pct = archiveSize > 0
+                            ? (int) Math.min(100, counting.count() * 100 / archiveSize) : -1;
+                    String shortPath = stripped.length() > 42
+                            ? "..." + stripped.substring(stripped.length() - 40) : stripped;
+                    cb.onProgress("Extracting...", pct, entries + " files  -  " + shortPath);
+                }
             }
+            cb.onProgress("Extracting...", 100, entries + " files extracted");
+        }
+    }
+
+    /** Counts bytes pulled from the underlying (compressed) stream, for extraction progress. */
+    private static final class CountingInputStream extends java.io.FilterInputStream {
+        private long count = 0;
+        CountingInputStream(InputStream in) { super(in); }
+        long count() { return count; }
+        @Override public int read() throws java.io.IOException {
+            int r = super.read();
+            if (r >= 0) count++;
+            return r;
+        }
+        @Override public int read(byte[] b, int off, int len) throws java.io.IOException {
+            int r = super.read(b, off, len);
+            if (r > 0) count += r;
+            return r;
+        }
+        @Override public long skip(long n) throws java.io.IOException {
+            long r = super.skip(n);
+            if (r > 0) count += r;
+            return r;
         }
     }
 

@@ -39,9 +39,16 @@ public class TerminalService extends Service {
             if (mSession != null) mSession.finishIfRunning();
             return START_NOT_STICKY;
         }
+        // Do NOT go foreground here. We defer creating the notification channel +
+        // startForeground until the terminal session actually starts (goForeground()),
+        // so the POST_NOTIFICATIONS prompt only appears after install/extract finishes.
+        return START_STICKY;
+    }
+
+    /** Create the notification channel and go foreground. Called once the session starts. */
+    void goForeground() {
         setupNotificationChannel();
         startForeground(NOTIF_ID, buildNotification());
-        return START_STICKY;
     }
 
     TerminalSession createSession(String prootExec, String filesDir, String[] args, String[] env,
