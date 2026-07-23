@@ -1,6 +1,7 @@
 package com.prootz;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -8,15 +9,21 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,6 +33,7 @@ import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
 
 import java.io.File;
+import java.util.List;
 
 public class MainActivity extends Activity {
 
@@ -41,13 +49,14 @@ public class MainActivity extends Activity {
     private Dialog mInstallDialog;
     private TextView mInstStage, mInstPercent, mInstDetail;
     private ProgressBar mInstBar;
+    private PopupWindow mSessionsPopup;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
             mService = ((TerminalService.LocalBinder) binder).getService();
-            if (mService.getSession() != null) {
-                mTerminalView.attachSession(mService.getSession());
+            if (!mService.getSessions().isEmpty()) {
+                switchToSession(mService.getSession(0));
             } else {
                 checkAndInstall();
             }
@@ -69,24 +78,23 @@ public class MainActivity extends Activity {
         setupExtraKeys();
 
         Intent svc = new Intent(this, TerminalService.class);
+        startService(svc);
         bindService(svc, mConnection, Context.BIND_AUTO_CREATE);
     }
 
     private void checkAndInstall() {
         RootfsInstaller.Distro installed = RootfsInstaller.installedDistro(this);
         if (installed != null) {
-            startSession(installed);
+            createNewSession(installed);
             return;
         }
-        // Auto-install Ubuntu with a live progress dialog.
         showInstallDialog();
         RootfsInstaller.install(this, RootfsInstaller.Distro.UBUNTU,
             (stage, pct, detail) -> runOnUiThread(() -> updateInstallDialog(stage, pct, detail)),
             new RootfsInstaller.Callback() {
                 @Override public void onSuccess(RootfsInstaller.Distro d) {
-                    // Runs on the UI thread (posted by RootfsInstaller).
                     dismissInstallDialog();
-                    startSession(d);
+                    createNewSession(d);
                 }
                 @Override public void onError(String msg) {
                     dismissInstallDialog();
@@ -141,7 +149,9 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void startSession(RootfsInstaller.Distro distro) {
+    // ---- Multi-session ----
+
+    private void createNewSession(RootfsInstaller.Distro distro) {
         if (mService == null) return;
         File filesDir = getFilesDir();
         File nativeLibDir = new File(getApplicationInfo().nativeLibraryDir);
@@ -162,21 +172,16 @@ public class MainActivity extends Activity {
             "-b", "/dev", "-b", "/proc", "-b", "/sys",
             "-w", "/root",
             "/usr/bin/env", "-i",
-            "HOME=/root",
-            "USER=root",
-            "LOGNAME=root",
+            "HOME=/root", "USER=root", "LOGNAME=root",
             "SHELL=" + shell,
-            "TERM=xterm-256color",
-            "COLORTERM=truecolor",
-            "LANG=C.UTF-8",
-            "LC_ALL=C.UTF-8",
+            "TERM=xterm-256color", "COLORTERM=truecolor",
+            "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
             "TMPDIR=/tmp",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             shell, "-l"
         };
 
-        // Pass through Android system env vars (same as termux)
-        java.util.List<String> envList = new java.util.ArrayList<>();
+        java.util.ArrayList<String> envList = new java.util.ArrayList<>();
         envList.add("PROOT_LOADER=" + prootLoader.getAbsolutePath());
         envList.add("PROOT_TMP_DIR=" + tmpDir.getAbsolutePath());
         envList.add("TMPDIR=" + tmpDir.getAbsolutePath());
@@ -192,7 +197,146 @@ public class MainActivity extends Activity {
         TerminalSession session = mService.createSession(
             prootExec.getAbsolutePath(), filesDir.getAbsolutePath(),
             args, envList.toArray(new String[0]), new ProotzSessionClient());
+        switchToSession(session);
+
+        if (mService.getSessions().size() == 1) {
+            mService.goForeground();
+        }
+    }
+
+    private void switchToSession(TerminalSession session) {
+        if (session == null) return;
+        session.updateTerminalSessionClient(new ProotzSessionClient());
         mTerminalView.attachSession(session);
+        mTerminalView.requestFocus();
+    }
+
+    private RootfsInstaller.Distro currentDistro() {
+        RootfsInstaller.Distro d = RootfsInstaller.installedDistro(this);
+        return d != null ? d : RootfsInstaller.Distro.UBUNTU;
+    }
+
+    // ---- Sessions drawer (hamburger popup) ----
+
+    private void showSessionsDrawer(View anchor) {
+        if (mService == null) return;
+        dismissSessionsPopup();
+
+        float density = getResources().getDisplayMetrics().density;
+        int widthPx = (int)(220 * density);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(12), dp(10), dp(12), dp(10));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor("#111827"));
+        bg.setStroke(dp(1), Color.parseColor("#1E3050"));
+        bg.setCornerRadius(dp(10));
+        root.setBackground(bg);
+
+        // Title
+        TextView title = new TextView(this);
+        title.setText("Sessions");
+        title.setTextColor(Color.parseColor("#FFB300"));
+        title.setTextSize(15f);
+        title.setPadding(dp(4), dp(2), 0, dp(8));
+        root.addView(title);
+
+        // Session list
+        List<TerminalSession> sessions = mService.getSessions();
+        TerminalSession current = mTerminalView.mTermSession;
+        for (int i = 0; i < sessions.size(); i++) {
+            final TerminalSession s = sessions.get(i);
+            final int idx = i;
+
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(6), dp(8), dp(6), dp(8));
+
+            if (s == current) {
+                GradientDrawable sel = new GradientDrawable();
+                sel.setColor(Color.parseColor("#1A2235"));
+                sel.setCornerRadius(dp(6));
+                row.setBackground(sel);
+            }
+
+            TextView label = new TextView(this);
+            String name = s.mSessionName != null ? s.mSessionName : ("Session " + (i + 1));
+            String status = s.isRunning() ? "" : " (exited)";
+            label.setText(name + status);
+            label.setTextColor(s == current ? Color.parseColor("#42A5F5") : Color.parseColor("#F0F0F0"));
+            label.setTextSize(13f);
+            label.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            row.addView(label);
+
+            // Delete button
+            TextView del = new TextView(this);
+            del.setText("\u2715");
+            del.setTextColor(Color.parseColor("#9E9E9E"));
+            del.setTextSize(14f);
+            del.setPadding(dp(10), 0, dp(4), 0);
+            del.setOnClickListener(v -> {
+                int removed = mService.removeSession(s);
+                dismissSessionsPopup();
+                if (mService.getSessions().isEmpty()) {
+                    finish();
+                } else if (s == mTerminalView.mTermSession) {
+                    int next = Math.min(removed, mService.getSessions().size() - 1);
+                    switchToSession(mService.getSession(next));
+                }
+            });
+            row.addView(del);
+
+            row.setOnClickListener(v -> {
+                switchToSession(s);
+                dismissSessionsPopup();
+            });
+            root.addView(row);
+        }
+
+        // Divider
+        View div = new View(this);
+        div.setBackgroundColor(Color.parseColor("#1E3050"));
+        div.setLayoutParams(new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
+        LinearLayout.LayoutParams divLp = (LinearLayout.LayoutParams) div.getLayoutParams();
+        divLp.topMargin = dp(6);
+        divLp.bottomMargin = dp(6);
+        root.addView(div);
+
+        // New Session button
+        TextView newBtn = new TextView(this);
+        newBtn.setText("+ New Session");
+        newBtn.setTextColor(Color.parseColor("#FFB300"));
+        newBtn.setTextSize(14f);
+        newBtn.setPadding(dp(6), dp(8), dp(6), dp(4));
+        newBtn.setOnClickListener(v -> {
+            dismissSessionsPopup();
+            createNewSession(currentDistro());
+        });
+        root.addView(newBtn);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(root);
+
+        mSessionsPopup = new PopupWindow(scroll, widthPx, ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        mSessionsPopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        mSessionsPopup.setElevation(dp(8));
+        mSessionsPopup.setOnDismissListener(() -> mSessionsPopup = null);
+        mSessionsPopup.showAsDropDown(anchor, 0, dp(4));
+    }
+
+    private void dismissSessionsPopup() {
+        if (mSessionsPopup != null) {
+            try { mSessionsPopup.dismiss(); } catch (Exception ignored) {}
+            mSessionsPopup = null;
+        }
+    }
+
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
     // ---- Extra keys ----
@@ -201,8 +345,13 @@ public class MainActivity extends Activity {
         LinearLayout row1 = findViewById(R.id.keys_row1);
         LinearLayout row2 = findViewById(R.id.keys_row2);
 
-        // Row 1: navigation (6 keys)
-        String[][] r1 = {{"ESC",null},{"TAB","\t"},{"↑",null},{"↓",null},{"←",null},{"→",null}};
+        // Hamburger button (leftmost, row1)
+        KeyButton hamburger = new KeyButton(this, "\u2261", true);
+        hamburger.setOnClickListener(v -> showSessionsDrawer(v));
+        row1.addView(hamburger);
+
+        // Row 1: navigation (5 keys + hamburger = 6)
+        String[][] r1 = {{"ESC",null},{"TAB","\t"},{"\u2191",null},{"\u2193",null},{"\u2190",null},{"\u2192",null}};
         for (String[] k : r1) {
             KeyButton btn = new KeyButton(this, k[0], true);
             final String send = k[1];
@@ -218,7 +367,7 @@ public class MainActivity extends Activity {
         row2.addView(mCtrlBtn);
         row2.addView(mAltBtn);
 
-        String[][] r2 = {{"HOME",null},{"END",null},{"/","/"},{"|","|"}};
+        String[][] r2 = {{"HOME",null},{"END",null},{"/","/"},{"|","|"},{"~","~"}};
         for (String[] k : r2) {
             KeyButton btn = new KeyButton(this, k[0], false);
             final String send = k[1];
@@ -232,22 +381,18 @@ public class MainActivity extends Activity {
         switch (label) {
             case "ESC":
                 mTerminalView.mTermSession.write(new byte[]{0x1b}, 0, 1); break;
-            case "↑":
+            case "\u2191":
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_DPAD_UP, 0); break;
-            case "↓":
+            case "\u2193":
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_DPAD_DOWN, 0); break;
-            case "←":
+            case "\u2190":
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_DPAD_LEFT, 0); break;
-            case "→":
+            case "\u2192":
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_DPAD_RIGHT, 0); break;
             case "HOME":
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_MOVE_HOME, 0); break;
             case "END":
                 mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_MOVE_END, 0); break;
-            case "PGUP":
-                mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_PAGE_UP, 0); break;
-            case "PGDN":
-                mTerminalView.handleKeyCode(android.view.KeyEvent.KEYCODE_PAGE_DOWN, 0); break;
             default:
                 if (send != null) {
                     String out = send;
@@ -275,15 +420,13 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         dismissInstallDialog();
+        dismissSessionsPopup();
         try { unbindService(mConnection); } catch (Exception ignored) {}
     }
 
     // ---- TerminalViewClient ----
     private class ProotzViewClient implements TerminalViewClient {
         @Override public float onScale(float scale) {
-            // 'scale' is the accumulated pinch factor (persists across events). Only step the
-            // font size once it crosses a threshold, then reset the accumulator. This keeps
-            // zooming smooth and directionally correct instead of jittering per event.
             if (scale < 0.94f || scale > 1.06f) {
                 int step = scale > 1f ? FONT_STEP : -FONT_STEP;
                 int newSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, mFontSize + step));
@@ -331,7 +474,11 @@ public class MainActivity extends Activity {
     private class ProotzSessionClient implements TerminalSessionClient {
         @Override public void onTextChanged(TerminalSession s) { mTerminalView.onScreenUpdated(); }
         @Override public void onTitleChanged(TerminalSession s) {}
-        @Override public void onSessionFinished(TerminalSession s) { finish(); }
+        @Override public void onSessionFinished(TerminalSession s) {
+            if (mService != null && mService.getSessions().size() <= 1) {
+                finish();
+            }
+        }
         @Override public void onCopyTextToClipboard(TerminalSession s, String text) {}
         @Override public void onPasteTextFromClipboard(TerminalSession s) {}
         @Override public void onBell(TerminalSession s) {}
