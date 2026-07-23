@@ -32,6 +32,9 @@ public class MainActivity extends Activity {
     private TerminalView mTerminalView;
     private TerminalService mService;
     private int mFontSize = 28;
+    private static final int MIN_FONT_SIZE = 8;
+    private static final int MAX_FONT_SIZE = 72;
+    private static final int FONT_STEP = 2;
     private KeyButton mCtrlBtn, mAltBtn;
     private boolean mCtrlActive = false, mAltActive = false;
 
@@ -278,9 +281,19 @@ public class MainActivity extends Activity {
     // ---- TerminalViewClient ----
     private class ProotzViewClient implements TerminalViewClient {
         @Override public float onScale(float scale) {
-            mFontSize = Math.max(8, Math.min(72, (int)(mFontSize * scale)));
-            mTerminalView.setTextSize(mFontSize);
-            return 1f;
+            // 'scale' is the accumulated pinch factor (persists across events). Only step the
+            // font size once it crosses a threshold, then reset the accumulator. This keeps
+            // zooming smooth and directionally correct instead of jittering per event.
+            if (scale < 0.94f || scale > 1.06f) {
+                int step = scale > 1f ? FONT_STEP : -FONT_STEP;
+                int newSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, mFontSize + step));
+                if (newSize != mFontSize) {
+                    mFontSize = newSize;
+                    mTerminalView.setTextSize(mFontSize);
+                }
+                return 1f;
+            }
+            return scale;
         }
         @Override public void onSingleTapUp(MotionEvent e) { showKeyboard(); }
         @Override public boolean shouldBackButtonBeMappedToEscape() { return false; }

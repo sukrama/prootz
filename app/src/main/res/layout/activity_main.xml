@@ -22,7 +22,7 @@
     <!-- Row 1: nav + special -->
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="32dp"
         android:background="@color/surface"
         android:scrollbars="none">
         <LinearLayout
@@ -36,7 +36,7 @@
     <!-- Row 2: symbols + ctrl/alt -->
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="32dp"
         android:background="@color/surface2"
         android:scrollbars="none">
         <LinearLayout
