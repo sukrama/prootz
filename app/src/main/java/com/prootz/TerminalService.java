@@ -84,7 +84,13 @@ public class TerminalService extends Service {
         s.finishIfRunning();
         int idx = mSessions.indexOf(s);
         mSessions.remove(s);
-        updateNotification();
+        if (mSessions.isEmpty()) {
+            releaseWakeLock();
+            stopForeground(true);
+            stopSelf();
+        } else {
+            updateNotification();
+        }
         return idx;
     }
 
