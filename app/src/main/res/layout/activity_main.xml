@@ -19,10 +19,11 @@
         android:layout_height="1dp"
         android:background="@color/divider" />
 
-    <!-- Row 1: nav + special -->
+    <!-- Row 1: nav + special (scroll synced with row 2) -->
     <HorizontalScrollView
+        android:id="@+id/scroll_row1"
         android:layout_width="match_parent"
-        android:layout_height="32dp"
+        android:layout_height="30dp"
         android:background="@color/surface"
         android:scrollbars="none">
         <LinearLayout
@@ -33,10 +34,11 @@
             android:paddingHorizontal="4dp" />
     </HorizontalScrollView>
 
-    <!-- Row 2: symbols + ctrl/alt -->
+    <!-- Row 2: symbols + ctrl/alt (scroll synced with row 1) -->
     <HorizontalScrollView
+        android:id="@+id/scroll_row2"
         android:layout_width="match_parent"
-        android:layout_height="32dp"
+        android:layout_height="30dp"
         android:background="@color/surface2"
         android:scrollbars="none">
         <LinearLayout

@@ -12,9 +12,11 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -37,6 +39,8 @@ public class MainActivity extends Activity {
     private static final int FONT_STEP = 2;
     private KeyButton mCtrlBtn, mAltBtn;
     private boolean mCtrlActive = false, mAltActive = false;
+    private HorizontalScrollView mScroll1, mScroll2;
+    private boolean mSyncingScroll = false;
 
     private Dialog mInstallDialog;
     private TextView mInstStage, mInstPercent, mInstDetail;
@@ -67,6 +71,7 @@ public class MainActivity extends Activity {
         mTerminalView.requestFocus();
 
         setupExtraKeys();
+        setupKeyScrollSync();
 
         Intent svc = new Intent(this, TerminalService.class);
         bindService(svc, mConnection, Context.BIND_AUTO_CREATE);
@@ -264,6 +269,25 @@ public class MainActivity extends Activity {
                     mTerminalView.mTermSession.write(b, 0, b.length);
                 }
         }
+    }
+
+    // ---- Sync horizontal scroll between the two key rows ----
+    private void setupKeyScrollSync() {
+        mScroll1 = findViewById(R.id.scroll_row1);
+        mScroll2 = findViewById(R.id.scroll_row2);
+        if (mScroll1 == null || mScroll2 == null) return;
+        mScroll1.setOnScrollChangeListener((View.OnScrollChangeListener) (v, x, y, ox, oy) -> {
+            if (mSyncingScroll) return;
+            mSyncingScroll = true;
+            if (mScroll2.getScrollX() != x) mScroll2.scrollTo(x, 0);
+            mSyncingScroll = false;
+        });
+        mScroll2.setOnScrollChangeListener((View.OnScrollChangeListener) (v, x, y, ox, oy) -> {
+            if (mSyncingScroll) return;
+            mSyncingScroll = true;
+            if (mScroll1.getScrollX() != x) mScroll1.scrollTo(x, 0);
+            mSyncingScroll = false;
+        });
     }
 
     private void showKeyboard() {
