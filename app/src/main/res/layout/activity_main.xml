@@ -95,5 +95,16 @@
             android:textColor="@color/gold"
             android:textSize="15sp"
             android:background="?android:attr/selectableItemBackground" />
+
+        <TextView
+            android:id="@+id/drawer_setup_storage"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp"
+            android:text="Setup Storage"
+            android:textColor="#42A5F5"
+            android:textSize="15sp"
+            android:background="?android:attr/selectableItemBackground" />
     </LinearLayout>
 </androidx.drawerlayout.widget.DrawerLayout>

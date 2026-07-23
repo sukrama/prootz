@@ -47,6 +47,8 @@ public class MainActivity extends Activity {
     private static final int FONT_STEP = 2;
     private KeyButton mCtrlBtn, mAltBtn;
     private boolean mCtrlActive = false, mAltActive = false;
+    private static final int REQ_STORAGE = 1002;
+    private static final String PREFS = "prootz";
 
     private Dialog mInstallDialog;
     private TextView mInstStage, mInstPercent, mInstDetail;
@@ -174,12 +176,19 @@ public class MainActivity extends Activity {
         String shell = new File(rootfsDir, distro.shell.substring(1)).exists()
             ? distro.shell : "/bin/sh";
 
-        String[] args = {
+        String[] baseArgs = {
             prootExec.getAbsolutePath(),
             "--root-id", "--kill-on-exit", "--link2symlink", "--sysvipc",
             "--kernel-release=6.2.1-PRoot-Distro",
             "-r", rootfsDir.getAbsolutePath(),
-            "-b", "/dev", "-b", "/proc", "-b", "/sys",
+            "-b", "/dev", "-b", "/proc", "-b", "/sys"
+        };
+        java.util.ArrayList<String> args = new java.util.ArrayList<>(java.util.Arrays.asList(baseArgs));
+
+        // Shared storage bind mounts (only when the user has set up storage access)
+        if (isStorageEnabled()) addStorageBinds(args);
+
+        for (String a : new String[]{
             "-w", "/root",
             "/usr/bin/env", "-i",
             "HOME=/root", "USER=root", "LOGNAME=root",
@@ -188,8 +197,9 @@ public class MainActivity extends Activity {
             "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
             "TMPDIR=/tmp",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            shell, "-l"
-        };
+            shell, "-l"}) {
+            args.add(a);
+        }
 
         java.util.ArrayList<String> envList = new java.util.ArrayList<>();
         envList.add("PROOT_LOADER=" + prootLoader.getAbsolutePath());
@@ -206,7 +216,7 @@ public class MainActivity extends Activity {
 
         TerminalSession session = mService.createSession(
             prootExec.getAbsolutePath(), filesDir.getAbsolutePath(),
-            args, envList.toArray(new String[0]), new ProotzSessionClient());
+            args.toArray(new String[0]), envList.toArray(new String[0]), new ProotzSessionClient());
         switchToSession(session);
 
         if (mService.getSessions().size() == 1) {
@@ -233,12 +243,87 @@ public class MainActivity extends Activity {
             mDrawerLayout.closeDrawers();
             createNewSession(currentDistro());
         });
+        findViewById(R.id.drawer_setup_storage).setOnClickListener(v -> onSetupStorageClicked());
+        updateSetupStorageButton();
 
         mDrawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
             @Override public void onDrawerOpened(View drawerView) {
                 refreshDrawerSessionList();
+                updateSetupStorageButton();
             }
         });
+    }
+
+    // ---- Shared storage access ----
+
+    private boolean isStorageSetupPref() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("storage_setup", false);
+    }
+
+    private boolean isStoragePermGranted() {
+        return checkSelfPermission("android.permission.WRITE_EXTERNAL_STORAGE")
+            == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean isStorageEnabled() {
+        return isStorageSetupPref() && isStoragePermGranted();
+    }
+
+    private void updateSetupStorageButton() {
+        View b = findViewById(R.id.drawer_setup_storage);
+        if (b != null) b.setVisibility(isStorageSetupPref() ? View.GONE : View.VISIBLE);
+    }
+
+    private void onSetupStorageClicked() {
+        if (isStoragePermGranted()) {
+            enableStorage();
+        } else {
+            requestPermissions(new String[]{
+                "android.permission.READ_EXTERNAL_STORAGE",
+                "android.permission.WRITE_EXTERNAL_STORAGE"}, REQ_STORAGE);
+        }
+    }
+
+    private void enableStorage() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("storage_setup", true).apply();
+        updateSetupStorageButton();
+        mDrawerLayout.closeDrawers();
+        Toast.makeText(this, "Storage enabled. Opening a new session with /root/storage...",
+            Toast.LENGTH_LONG).show();
+        createNewSession(currentDistro());
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(req, perms, results);
+        if (req == REQ_STORAGE) {
+            if (isStoragePermGranted()) enableStorage();
+            else Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void addStorageBinds(java.util.ArrayList<String> args) {
+        try {
+            File shared = android.os.Environment.getExternalStorageDirectory();
+            bindDir(args, shared, "/root/storage/shared");
+            bindPublic(args, android.os.Environment.DIRECTORY_DOWNLOADS, "/root/storage/downloads");
+            bindPublic(args, android.os.Environment.DIRECTORY_DCIM, "/root/storage/dcim");
+            bindPublic(args, android.os.Environment.DIRECTORY_PICTURES, "/root/storage/pictures");
+            bindPublic(args, android.os.Environment.DIRECTORY_MUSIC, "/root/storage/music");
+            bindPublic(args, android.os.Environment.DIRECTORY_MOVIES, "/root/storage/movies");
+            File ext = getExternalFilesDir(null);
+            bindDir(args, ext, "/root/storage/external-0");
+        } catch (Exception ignored) {}
+    }
+
+    private void bindPublic(java.util.ArrayList<String> args, String type, String guest) {
+        bindDir(args, android.os.Environment.getExternalStoragePublicDirectory(type), guest);
+    }
+
+    private void bindDir(java.util.ArrayList<String> args, File host, String guest) {
+        if (host == null) return;
+        args.add("-b");
+        args.add(host.getAbsolutePath() + ":" + guest);
     }
 
     private void toggleDrawer() {
