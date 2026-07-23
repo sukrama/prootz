@@ -6,10 +6,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.KeyEvent;
@@ -37,7 +35,6 @@ public class MainActivity extends Activity {
     private KeyButton mCtrlBtn, mAltBtn;
     private boolean mCtrlActive = false, mAltActive = false;
 
-    private static final int REQ_POST_NOTIF = 1001;
     private Dialog mInstallDialog;
     private TextView mInstStage, mInstPercent, mInstDetail;
     private ProgressBar mInstBar;
@@ -69,7 +66,6 @@ public class MainActivity extends Activity {
         setupExtraKeys();
 
         Intent svc = new Intent(this, TerminalService.class);
-        startService(svc);
         bindService(svc, mConnection, Context.BIND_AUTO_CREATE);
     }
 
@@ -77,7 +73,6 @@ public class MainActivity extends Activity {
         RootfsInstaller.Distro installed = RootfsInstaller.installedDistro(this);
         if (installed != null) {
             startSession(installed);
-            afterEnterTerminal();
             return;
         }
         // Auto-install Ubuntu with a live progress dialog.
@@ -89,7 +84,6 @@ public class MainActivity extends Activity {
                     // Runs on the UI thread (posted by RootfsInstaller).
                     dismissInstallDialog();
                     startSession(d);
-                    afterEnterTerminal();
                 }
                 @Override public void onError(String msg) {
                     dismissInstallDialog();
@@ -141,21 +135,6 @@ public class MainActivity extends Activity {
         if (mInstallDialog != null) {
             try { mInstallDialog.dismiss(); } catch (Exception ignored) {}
             mInstallDialog = null;
-        }
-    }
-
-    /** Called right after the user has entered the terminal (install/extract done). */
-    private void afterEnterTerminal() {
-        maybeRequestNotificationPermission();
-    }
-
-    private void maybeRequestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (checkSelfPermission("android.permission.POST_NOTIFICATIONS")
-                    != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},
-                    REQ_POST_NOTIF);
-            }
         }
     }
 
@@ -211,7 +190,6 @@ public class MainActivity extends Activity {
             prootExec.getAbsolutePath(), filesDir.getAbsolutePath(),
             args, envList.toArray(new String[0]), new ProotzSessionClient());
         mTerminalView.attachSession(session);
-        mService.goForeground();
     }
 
     // ---- Extra keys ----
