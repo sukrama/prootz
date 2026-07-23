@@ -1,7 +1,6 @@
 package com.prootz;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -21,11 +20,11 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
-import android.widget.PopupWindow;
 import android.widget.ProgressBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -39,6 +38,9 @@ public class MainActivity extends Activity {
 
     private TerminalView mTerminalView;
     private TerminalService mService;
+    private DrawerLayout mDrawerLayout;
+    private LinearLayout mDrawerPanel;
+    private LinearLayout mDrawerSessionList;
     private int mFontSize = 28;
     private static final int MIN_FONT_SIZE = 8;
     private static final int MAX_FONT_SIZE = 72;
@@ -49,14 +51,18 @@ public class MainActivity extends Activity {
     private Dialog mInstallDialog;
     private TextView mInstStage, mInstPercent, mInstDetail;
     private ProgressBar mInstBar;
-    private PopupWindow mSessionsPopup;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
             mService = ((TerminalService.LocalBinder) binder).getService();
             if (!mService.getSessions().isEmpty()) {
-                switchToSession(mService.getSession(0));
+                // Find first still-running session, or fall back to last
+                TerminalSession alive = null;
+                for (TerminalSession s : mService.getSessions()) {
+                    if (s.isRunning()) { alive = s; break; }
+                }
+                switchToSession(alive != null ? alive : mService.getSession(0));
             } else {
                 checkAndInstall();
             }
@@ -70,11 +76,15 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
 
+        mDrawerLayout = findViewById(R.id.drawer_layout);
+        mDrawerPanel = findViewById(R.id.drawer_panel);
+        mDrawerSessionList = findViewById(R.id.drawer_session_list);
         mTerminalView = findViewById(R.id.terminal_view);
         mTerminalView.setTerminalViewClient(new ProotzViewClient());
         mTerminalView.setTextSize(mFontSize);
         mTerminalView.requestFocus();
 
+        setupDrawer();
         setupExtraKeys();
 
         Intent svc = new Intent(this, TerminalService.class);
@@ -216,36 +226,36 @@ public class MainActivity extends Activity {
         return d != null ? d : RootfsInstaller.Distro.UBUNTU;
     }
 
-    // ---- Sessions drawer (hamburger popup) ----
+    // ---- Drawer (sessions panel) ----
 
-    private void showSessionsDrawer(View anchor) {
-        if (mService == null) return;
-        dismissSessionsPopup();
+    private void setupDrawer() {
+        findViewById(R.id.drawer_new_session).setOnClickListener(v -> {
+            mDrawerLayout.closeDrawers();
+            createNewSession(currentDistro());
+        });
 
-        float density = getResources().getDisplayMetrics().density;
-        int widthPx = (int)(220 * density);
+        mDrawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
+            @Override public void onDrawerOpened(View drawerView) {
+                refreshDrawerSessionList();
+            }
+        });
+    }
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(12), dp(10), dp(12), dp(10));
+    private void toggleDrawer() {
+        if (mDrawerLayout.isDrawerOpen(Gravity.START)) {
+            mDrawerLayout.closeDrawer(Gravity.START);
+        } else {
+            refreshDrawerSessionList();
+            mDrawerLayout.openDrawer(Gravity.START);
+        }
+    }
 
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#111827"));
-        bg.setStroke(dp(1), Color.parseColor("#1E3050"));
-        bg.setCornerRadius(dp(10));
-        root.setBackground(bg);
-
-        // Title
-        TextView title = new TextView(this);
-        title.setText("Sessions");
-        title.setTextColor(Color.parseColor("#FFB300"));
-        title.setTextSize(15f);
-        title.setPadding(dp(4), dp(2), 0, dp(8));
-        root.addView(title);
-
-        // Session list
+    private void refreshDrawerSessionList() {
+        if (mService == null || mDrawerSessionList == null) return;
+        mDrawerSessionList.removeAllViews();
         List<TerminalSession> sessions = mService.getSessions();
         TerminalSession current = mTerminalView.mTermSession;
+
         for (int i = 0; i < sessions.size(); i++) {
             final TerminalSession s = sessions.get(i);
             final int idx = i;
@@ -253,21 +263,31 @@ public class MainActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(6), dp(8), dp(6), dp(8));
+            row.setPadding(dp(16), dp(12), dp(12), dp(12));
 
             if (s == current) {
                 GradientDrawable sel = new GradientDrawable();
                 sel.setColor(Color.parseColor("#1A2235"));
-                sel.setCornerRadius(dp(6));
                 row.setBackground(sel);
             }
 
+            // Session icon (circle)
+            View dot = new View(this);
+            GradientDrawable dotBg = new GradientDrawable();
+            dotBg.setShape(GradientDrawable.OVAL);
+            dotBg.setColor(s.isRunning() ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
+            dot.setBackground(dotBg);
+            LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(dp(8), dp(8));
+            dotLp.rightMargin = dp(10);
+            dot.setLayoutParams(dotLp);
+            row.addView(dot);
+
+            // Label
             TextView label = new TextView(this);
             String name = s.mSessionName != null ? s.mSessionName : ("Session " + (i + 1));
-            String status = s.isRunning() ? "" : " (exited)";
-            label.setText(name + status);
+            label.setText(name);
             label.setTextColor(s == current ? Color.parseColor("#42A5F5") : Color.parseColor("#F0F0F0"));
-            label.setTextSize(13f);
+            label.setTextSize(14f);
             label.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             row.addView(label);
 
@@ -275,63 +295,27 @@ public class MainActivity extends Activity {
             TextView del = new TextView(this);
             del.setText("\u2715");
             del.setTextColor(Color.parseColor("#9E9E9E"));
-            del.setTextSize(14f);
-            del.setPadding(dp(10), 0, dp(4), 0);
+            del.setTextSize(16f);
+            del.setPadding(dp(12), 0, dp(4), 0);
             del.setOnClickListener(v -> {
                 int removed = mService.removeSession(s);
-                dismissSessionsPopup();
                 if (mService.getSessions().isEmpty()) {
                     finish();
-                } else if (s == mTerminalView.mTermSession) {
+                    return;
+                }
+                if (s == mTerminalView.mTermSession) {
                     int next = Math.min(removed, mService.getSessions().size() - 1);
                     switchToSession(mService.getSession(next));
                 }
+                refreshDrawerSessionList();
             });
             row.addView(del);
 
             row.setOnClickListener(v -> {
                 switchToSession(s);
-                dismissSessionsPopup();
+                mDrawerLayout.closeDrawers();
             });
-            root.addView(row);
-        }
-
-        // Divider
-        View div = new View(this);
-        div.setBackgroundColor(Color.parseColor("#1E3050"));
-        div.setLayoutParams(new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
-        LinearLayout.LayoutParams divLp = (LinearLayout.LayoutParams) div.getLayoutParams();
-        divLp.topMargin = dp(6);
-        divLp.bottomMargin = dp(6);
-        root.addView(div);
-
-        // New Session button
-        TextView newBtn = new TextView(this);
-        newBtn.setText("+ New Session");
-        newBtn.setTextColor(Color.parseColor("#FFB300"));
-        newBtn.setTextSize(14f);
-        newBtn.setPadding(dp(6), dp(8), dp(6), dp(4));
-        newBtn.setOnClickListener(v -> {
-            dismissSessionsPopup();
-            createNewSession(currentDistro());
-        });
-        root.addView(newBtn);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(root);
-
-        mSessionsPopup = new PopupWindow(scroll, widthPx, ViewGroup.LayoutParams.WRAP_CONTENT, true);
-        mSessionsPopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        mSessionsPopup.setElevation(dp(8));
-        mSessionsPopup.setOnDismissListener(() -> mSessionsPopup = null);
-        mSessionsPopup.showAsDropDown(anchor, 0, dp(4));
-    }
-
-    private void dismissSessionsPopup() {
-        if (mSessionsPopup != null) {
-            try { mSessionsPopup.dismiss(); } catch (Exception ignored) {}
-            mSessionsPopup = null;
+            mDrawerSessionList.addView(row);
         }
     }
 
@@ -345,12 +329,11 @@ public class MainActivity extends Activity {
         LinearLayout row1 = findViewById(R.id.keys_row1);
         LinearLayout row2 = findViewById(R.id.keys_row2);
 
-        // Hamburger button (leftmost, row1)
+        // Hamburger button (leftmost, row1) -> opens drawer
         KeyButton hamburger = new KeyButton(this, "\u2261", true);
-        hamburger.setOnClickListener(v -> showSessionsDrawer(v));
+        hamburger.setOnClickListener(v -> toggleDrawer());
         row1.addView(hamburger);
 
-        // Row 1: navigation (5 keys + hamburger = 6)
         String[][] r1 = {{"ESC",null},{"TAB","\t"},{"\u2191",null},{"\u2193",null},{"\u2190",null},{"\u2192",null}};
         for (String[] k : r1) {
             KeyButton btn = new KeyButton(this, k[0], true);
@@ -359,7 +342,6 @@ public class MainActivity extends Activity {
             row1.addView(btn);
         }
 
-        // Row 2: modifiers + useful keys (6 keys)
         mCtrlBtn = new KeyButton(this, "CTRL", false);
         mAltBtn  = new KeyButton(this, "ALT",  false);
         mCtrlBtn.setOnClickListener(v -> { mCtrlActive = !mCtrlActive; mCtrlBtn.setActive(mCtrlActive); });
@@ -420,7 +402,6 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         dismissInstallDialog();
-        dismissSessionsPopup();
         try { unbindService(mConnection); } catch (Exception ignored) {}
     }
 
@@ -475,9 +456,19 @@ public class MainActivity extends Activity {
         @Override public void onTextChanged(TerminalSession s) { mTerminalView.onScreenUpdated(); }
         @Override public void onTitleChanged(TerminalSession s) {}
         @Override public void onSessionFinished(TerminalSession s) {
-            if (mService != null && mService.getSessions().size() <= 1) {
-                finish();
-            }
+            // Remove the dead session and switch to another, or close app if last
+            runOnUiThread(() -> {
+                if (mService == null) return;
+                int removed = mService.removeSession(s);
+                if (mService.getSessions().isEmpty()) {
+                    finish();
+                    return;
+                }
+                if (s == mTerminalView.mTermSession) {
+                    int next = Math.min(removed, mService.getSessions().size() - 1);
+                    switchToSession(mService.getSession(next));
+                }
+            });
         }
         @Override public void onCopyTextToClipboard(TerminalSession s, String text) {}
         @Override public void onPasteTextFromClipboard(TerminalSession s) {}

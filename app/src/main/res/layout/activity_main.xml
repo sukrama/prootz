@@ -1,39 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/bg">
 
-    <com.termux.view.TerminalView
-        android:id="@+id/terminal_view"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:focusable="true"
-        android:focusableInTouchMode="true" />
-
-    <!-- divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/divider" />
-
-    <!-- Row 1: navigation (keys stretch to fill width) -->
+    <!-- Main content -->
     <LinearLayout
-        android:id="@+id/keys_row1"
         android:layout_width="match_parent"
-        android:layout_height="34dp"
-        android:orientation="horizontal"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <com.termux.view.TerminalView
+            android:id="@+id/terminal_view"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider" />
+
+        <LinearLayout
+            android:id="@+id/keys_row1"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:orientation="horizontal"
+            android:background="@color/surface"
+            android:paddingHorizontal="2dp" />
+
+        <LinearLayout
+            android:id="@+id/keys_row2"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:orientation="horizontal"
+            android:background="@color/surface2"
+            android:paddingHorizontal="2dp" />
+    </LinearLayout>
+
+    <!-- Left drawer (sessions) -->
+    <LinearLayout
+        android:id="@+id/drawer_panel"
+        android:layout_width="260dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:orientation="vertical"
         android:background="@color/surface"
-        android:paddingHorizontal="2dp" />
+        android:paddingTop="24dp">
 
-    <!-- Row 2: modifiers + useful keys -->
-    <LinearLayout
-        android:id="@+id/keys_row2"
-        android:layout_width="match_parent"
-        android:layout_height="34dp"
-        android:orientation="horizontal"
-        android:background="@color/surface2"
-        android:paddingHorizontal="2dp" />
-</LinearLayout>
+        <TextView
+            android:id="@+id/drawer_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sessions"
+            android:textColor="@color/gold"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-medium"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="12dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+            <LinearLayout
+                android:id="@+id/drawer_session_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingVertical="4dp" />
+        </ScrollView>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider" />
+
+        <TextView
+            android:id="@+id/drawer_new_session"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp"
+            android:text="+ New Session"
+            android:textColor="@color/gold"
+            android:textSize="15sp"
+            android:background="?android:attr/selectableItemBackground" />
+    </LinearLayout>
+</androidx.drawerlayout.widget.DrawerLayout>
