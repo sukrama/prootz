@@ -20,7 +20,12 @@ class KeyButton extends androidx.appcompat.widget.AppCompatButton {
         setAllCaps(false);
         setGravity(Gravity.CENTER);
         setIncludeFontPadding(false);
-        setPadding(dp(ctx, 4), 0, dp(ctx, 4), 0);
+        setPadding(dp(ctx, 3), 0, dp(ctx, 3), 0);
+        // Override AppCompatButton's large default min width/height.
+        setMinWidth(dp(ctx, 22));
+        setMinimumWidth(dp(ctx, 22));
+        setMinHeight(0);
+        setMinimumHeight(0);
         setTextColor(accent ? Color.parseColor("#FFB300") : Color.parseColor("#42A5F5"));
         setBackground(makeBackground(false, accent));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -28,7 +33,6 @@ class KeyButton extends androidx.appcompat.widget.AppCompatButton {
             LinearLayout.LayoutParams.MATCH_PARENT);
         lp.setMargins(dp(ctx, 1), dp(ctx, 2), dp(ctx, 1), dp(ctx, 2));
         setLayoutParams(lp);
-        setMinWidth(dp(ctx, 26));
     }
 
     void setActive(boolean active) {
@@ -48,7 +52,7 @@ class KeyButton extends androidx.appcompat.widget.AppCompatButton {
     private GradientDrawable makeBackground(boolean active, boolean accent) {
         GradientDrawable d = new GradientDrawable();
         d.setShape(GradientDrawable.RECTANGLE);
-        d.setCornerRadius(dp(getContext(), 6));
+        d.setCornerRadius(dp(getContext(), 4));
         d.setColor(active ? Color.parseColor("#1565C0") : Color.parseColor("#162032"));
         d.setStroke(dp(getContext(), 1),
             active ? Color.parseColor("#42A5F5") : Color.parseColor("#1E3050"));

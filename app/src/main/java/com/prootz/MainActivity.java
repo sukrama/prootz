@@ -206,8 +206,8 @@ public class MainActivity extends Activity {
         LinearLayout row1 = findViewById(R.id.keys_row1);
         LinearLayout row2 = findViewById(R.id.keys_row2);
 
-        // Row 1: navigation
-        String[][] r1 = {{"ESC",null},{"TAB","\t"},{"↑",null},{"↓",null},{"←",null},{"→",null},{"HOME",null},{"END",null},{"PGUP",null},{"PGDN",null}};
+        // Row 1: navigation (6 keys)
+        String[][] r1 = {{"ESC",null},{"TAB","\t"},{"↑",null},{"↓",null},{"←",null},{"→",null}};
         for (String[] k : r1) {
             KeyButton btn = new KeyButton(this, k[0], true);
             final String send = k[1];
@@ -215,7 +215,7 @@ public class MainActivity extends Activity {
             row1.addView(btn);
         }
 
-        // Row 2: modifiers + symbols
+        // Row 2: modifiers + useful keys (6 keys)
         mCtrlBtn = new KeyButton(this, "CTRL", false);
         mAltBtn  = new KeyButton(this, "ALT",  false);
         mCtrlBtn.setOnClickListener(v -> { mCtrlActive = !mCtrlActive; mCtrlBtn.setActive(mCtrlActive); });
@@ -223,7 +223,7 @@ public class MainActivity extends Activity {
         row2.addView(mCtrlBtn);
         row2.addView(mAltBtn);
 
-        String[][] r2 = {{"/","/"},{"-","-"},{"_","_"},{"|","|"},{"\\","\\"},{"~","~"},{"\"","\""},{"'","'"},{"[","["},{"]","]"},{"{","{"},{"}","}"},{"#","#"},{"$","$"},{"&","&"},{"*","*"}};
+        String[][] r2 = {{"HOME",null},{"END",null},{"/","/"},{"|","|"}};
         for (String[] k : r2) {
             KeyButton btn = new KeyButton(this, k[0], false);
             final String send = k[1];
