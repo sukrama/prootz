@@ -2,6 +2,8 @@ package com.prootz;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -555,8 +557,23 @@ public class MainActivity extends Activity {
                 }
             });
         }
-        @Override public void onCopyTextToClipboard(TerminalSession s, String text) {}
-        @Override public void onPasteTextFromClipboard(TerminalSession s) {}
+        @Override public void onCopyTextToClipboard(TerminalSession s, String text) {
+            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm != null) {
+                cm.setPrimaryClip(ClipData.newPlainText("prootz", text));
+                Toast.makeText(MainActivity.this, "Copied", Toast.LENGTH_SHORT).show();
+            }
+        }
+        @Override public void onPasteTextFromClipboard(TerminalSession s) {
+            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm != null && cm.hasPrimaryClip()) {
+                CharSequence text = cm.getPrimaryClip().getItemAt(0).getText();
+                if (text != null && text.length() > 0) {
+                    byte[] data = text.toString().getBytes();
+                    s.write(data, 0, data.length);
+                }
+            }
+        }
         @Override public void onBell(TerminalSession s) {}
         @Override public void onColorsChanged(TerminalSession s) {}
         @Override public void onTerminalCursorStateChange(boolean state) {}
