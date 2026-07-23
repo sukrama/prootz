@@ -1,27 +1,18 @@
 package com.prootz;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.KeyEvent;
-import android.view.LayoutInflater;
 import android.view.MotionEvent;
-import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.Spinner;
-import android.widget.TextView;
+import android.widget.Toast;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -75,79 +66,21 @@ public class MainActivity extends Activity {
             startSession(installed);
             return;
         }
-        showInstallDialog();
-    }
-
-    private void showInstallDialog() {
-        View v = LayoutInflater.from(this).inflate(R.layout.dialog_install, null);
-        Spinner spinner = v.findViewById(R.id.distro_spinner);
-        Button btnInstall = v.findViewById(R.id.btn_install);
-        LinearLayout progressSection = v.findViewById(R.id.progress_section);
-        ProgressBar progressBar = v.findViewById(R.id.progress_bar);
-        TextView progressStage = v.findViewById(R.id.progress_stage);
-        TextView progressPct = v.findViewById(R.id.progress_pct);
-        TextView progressDetail = v.findViewById(R.id.progress_detail);
-
-        RootfsInstaller.Distro[] distros = RootfsInstaller.Distro.values();
-        String[] names = new String[distros.length];
-        for (int i = 0; i < distros.length; i++) names[i] = distros[i].displayName;
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
-            android.R.layout.simple_spinner_item, names) {
-            @Override
-            public View getView(int pos, View cv, android.view.ViewGroup parent) {
-                TextView tv = (TextView) super.getView(pos, cv, parent);
-                tv.setTextColor(Color.parseColor("#F0F0F0"));
-                tv.setTextSize(14f);
-                return tv;
-            }
-            @Override
-            public View getDropDownView(int pos, View cv, android.view.ViewGroup parent) {
-                TextView tv = (TextView) super.getDropDownView(pos, cv, parent);
-                tv.setTextColor(Color.parseColor("#F0F0F0"));
-                tv.setBackgroundColor(Color.parseColor("#1A2235"));
-                tv.setPadding(32, 24, 32, 24);
-                return tv;
-            }
-        };
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-        spinner.setBackground(getDrawable(R.drawable.spinner_bg));
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-            .setView(v)
-            .setCancelable(false)
-            .create();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawableResource(R.drawable.progress_bg);
-        }
-        dialog.show();
-
-        btnInstall.setOnClickListener(btn -> {
-            RootfsInstaller.Distro chosen = distros[spinner.getSelectedItemPosition()];
-            spinner.setEnabled(false);
-            btnInstall.setEnabled(false);
-            btnInstall.setText("Installing…");
-            progressSection.setVisibility(View.VISIBLE);
-
-            RootfsInstaller.install(this, chosen,
-                (stage, pct, detail) -> runOnUiThread(() -> {
-                    progressStage.setText(stage);
-                    progressPct.setText(pct >= 0 ? pct + "%" : "");
-                    if (pct >= 0) progressBar.setProgress(pct);
-                    progressDetail.setText(detail);
-                }),
-                new RootfsInstaller.Callback() {
-                    @Override public void onSuccess(RootfsInstaller.Distro d) {
-                        dialog.dismiss();
-                        startSession(d);
-                    }
-                    @Override public void onError(String msg) {
-                        dialog.dismiss();
-                        showError(msg, chosen);
-                    }
-                });
-        });
+        // Auto-install Ubuntu langsung tanpa dialog popup
+        RootfsInstaller.install(this, RootfsInstaller.Distro.UBUNTU,
+            (stage, pct, detail) -> { /* progress bisa ditambahkan nanti */ },
+            new RootfsInstaller.Callback() {
+                @Override public void onSuccess(RootfsInstaller.Distro d) {
+                    startSession(d);
+                }
+                @Override public void onError(String msg) {
+                    runOnUiThread(() -> {
+                        Toast.makeText(MainActivity.this,
+                            "Install failed: " + msg, Toast.LENGTH_LONG).show();
+                        finish();
+                    });
+                }
+            });
     }
 
     private void startSession(RootfsInstaller.Distro distro) {
@@ -203,19 +136,6 @@ public class MainActivity extends Activity {
             args, envList.toArray(new String[0]), new ProotzSessionClient());
         mTerminalView.attachSession(session);
         mService.updateNotification();
-    }
-
-    private void showError(String message, RootfsInstaller.Distro distro) {
-        runOnUiThread(() -> new AlertDialog.Builder(this)
-            .setTitle("Install Error")
-            .setMessage(message)
-            .setPositiveButton("Retry", (d, w) -> {
-                d.dismiss();
-                RootfsInstaller.reset(this, distro);
-                showInstallDialog();
-            })
-            .setNegativeButton("Exit", (d, w) -> finish())
-            .show());
     }
 
     // ---- Extra keys ----
