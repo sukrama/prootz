@@ -12,4 +12,6 @@
     <color name="key_bg">#162032</color>
     <color name="key_border">#1E3050</color>
     <color name="divider">#1E2D40</color>
+    <color name="ubuntu_orange">#E95420</color>
+    <color name="ubuntu_white">#FFFFFF</color>
 </resources>

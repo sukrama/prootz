@@ -149,7 +149,7 @@ public class TerminalService extends Service {
         return new Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_send)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(openPi)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_delete, "Exit", stopPi)
