@@ -119,7 +119,6 @@ public class ProotzDocumentsProvider extends DocumentsProvider {
         row.add(Document.COLUMN_DOCUMENT_ID, docId);
         row.add(Document.COLUMN_DISPLAY_NAME, file.getName());
         row.add(Document.COLUMN_MIME_TYPE, mime);
-        row.add(Document.COLUMN_WRITE_URI, null);
         row.add(Document.COLUMN_LAST_MODIFIED, file.lastModified());
         row.add(Document.COLUMN_FLAGS, flags);
         row.add(Document.COLUMN_SIZE, file.isFile() ? file.length() : null);
