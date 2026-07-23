@@ -16,7 +16,7 @@ class KeyButton extends androidx.appcompat.widget.AppCompatButton {
     KeyButton(Context ctx, String label, boolean accent) {
         super(ctx);
         setText(label);
-        setTextSize(9f);
+        setTextSize(11f);
         setAllCaps(false);
         setGravity(Gravity.CENTER);
         setIncludeFontPadding(false);
@@ -29,9 +29,8 @@ class KeyButton extends androidx.appcompat.widget.AppCompatButton {
         setTextColor(accent ? Color.parseColor("#FFB300") : Color.parseColor("#42A5F5"));
         setBackground(makeBackground(false, accent));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.MATCH_PARENT);
-        lp.setMargins(dp(ctx, 1), dp(ctx, 2), dp(ctx, 1), dp(ctx, 2));
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        lp.setMargins(dp(ctx, 2), dp(ctx, 3), dp(ctx, 2), dp(ctx, 3));
         setLayoutParams(lp);
     }
 
