@@ -193,6 +193,14 @@ final class RootfsInstaller {
                         skip(in, padded(size));
                         break;
                     default:
+                        // Some tarballs store directories as a regular-type entry whose name
+                        // ends with '/' (old tar style). Treat those (and any path that is
+                        // already a directory) as a directory to avoid EISDIR on open().
+                        if (name.endsWith("/") || stripped.endsWith("/") || outFile.isDirectory()) {
+                            outFile.mkdirs();
+                            skip(in, padded(size));
+                            break;
+                        }
                         outFile.getParentFile().mkdirs();
                         try (OutputStream fo = new FileOutputStream(outFile)) {
                             copyExact(in, fo, size);
