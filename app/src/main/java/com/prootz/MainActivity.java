@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
     private DrawerLayout mDrawerLayout;
     private LinearLayout mDrawerPanel;
     private LinearLayout mDrawerSessionList;
-    private int mFontSize = 28;
+    private int mFontSize = 13;
     private static final int MIN_FONT_SIZE = 8;
     private static final int MAX_FONT_SIZE = 72;
     private static final int FONT_STEP = 2;
@@ -421,7 +421,8 @@ public class MainActivity extends Activity {
         hamburger.setOnClickListener(v -> toggleDrawer());
         row1.addView(hamburger);
 
-        String[][] r1 = {{"ESC",null},{"TAB","\t"},{"\u2191",null},{"\u2193",null},{"\u2190",null},{"\u2192",null}};
+        // Row 1: ESC, TAB, CTRL, ALT, HOME, END, /, |, ~
+        String[][] r1 = {{"ESC",null},{"TAB","\t"}};
         for (String[] k : r1) {
             KeyButton btn = new KeyButton(this, k[0], true);
             final String send = k[1];
@@ -433,12 +434,21 @@ public class MainActivity extends Activity {
         mAltBtn  = new KeyButton(this, "ALT",  false);
         mCtrlBtn.setOnClickListener(v -> { mCtrlActive = !mCtrlActive; mCtrlBtn.setActive(mCtrlActive); });
         mAltBtn.setOnClickListener(v  -> { mAltActive  = !mAltActive;  mAltBtn.setActive(mAltActive); });
-        row2.addView(mCtrlBtn);
-        row2.addView(mAltBtn);
+        row1.addView(mCtrlBtn);
+        row1.addView(mAltBtn);
 
-        String[][] r2 = {{"HOME",null},{"END",null},{"/","/"},{"|","|"},{"~","~"}};
-        for (String[] k : r2) {
+        String[][] r1b = {{"HOME",null},{"END",null},{"/","/"},{"|","|"},{"~","~"}};
+        for (String[] k : r1b) {
             KeyButton btn = new KeyButton(this, k[0], false);
+            final String send = k[1];
+            btn.setOnClickListener(v -> onExtraKey(k[0], send));
+            row1.addView(btn);
+        }
+
+        // Row 2: arrows only
+        String[][] r2 = {{"\u2191",null},{"\u2193",null},{"\u2190",null},{"\u2192",null}};
+        for (String[] k : r2) {
+            KeyButton btn = new KeyButton(this, k[0], true);
             final String send = k[1];
             btn.setOnClickListener(v -> onExtraKey(k[0], send));
             row2.addView(btn);
