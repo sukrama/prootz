@@ -417,14 +417,14 @@ public class MainActivity extends Activity {
         LinearLayout row2 = findViewById(R.id.keys_row2);
 
         // Hamburger button (leftmost, row1) -> opens drawer
-        KeyButton hamburger = new KeyButton(this, "\u2261", true);
+        KeyButton hamburger = new KeyButton(this, "\u2261", false);
         hamburger.setOnClickListener(v -> toggleDrawer());
         row1.addView(hamburger);
 
-        // Row 1: ESC, TAB, CTRL, ALT, HOME, END, /, |, ~
+        // Row 1: all blue
         String[][] r1 = {{"ESC",null},{"TAB","\t"}};
         for (String[] k : r1) {
-            KeyButton btn = new KeyButton(this, k[0], true);
+            KeyButton btn = new KeyButton(this, k[0], false);
             final String send = k[1];
             btn.setOnClickListener(v -> onExtraKey(k[0], send));
             row1.addView(btn);
@@ -437,7 +437,7 @@ public class MainActivity extends Activity {
         row1.addView(mCtrlBtn);
         row1.addView(mAltBtn);
 
-        String[][] r1b = {{"HOME",null},{"END",null},{"/","/"},{"|","|"},{"~","~"}};
+        String[][] r1b = {{"HOME",null},{"END",null}};
         for (String[] k : r1b) {
             KeyButton btn = new KeyButton(this, k[0], false);
             final String send = k[1];
@@ -445,9 +445,16 @@ public class MainActivity extends Activity {
             row1.addView(btn);
         }
 
-        // Row 2: arrows only
+        // Row 2: all gold
         String[][] r2 = {{"\u2191",null},{"\u2193",null},{"\u2190",null},{"\u2192",null}};
         for (String[] k : r2) {
+            KeyButton btn = new KeyButton(this, k[0], true);
+            final String send = k[1];
+            btn.setOnClickListener(v -> onExtraKey(k[0], send));
+            row2.addView(btn);
+        }
+        String[][] r2b = {{"/","/"},{"|","|"},{"~","~"}};
+        for (String[] k : r2b) {
             KeyButton btn = new KeyButton(this, k[0], true);
             final String send = k[1];
             btn.setOnClickListener(v -> onExtraKey(k[0], send));
