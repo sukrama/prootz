@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
             return;
         }
         showInstallDialog();
-        RootfsInstaller.install(this, RootfsInstaller.Distro.UBUNTU,
+        RootfsInstaller.install(this, RootfsInstaller.Distro.DEBIAN,
             (stage, pct, detail) -> runOnUiThread(() -> updateInstallDialog(stage, pct, detail)),
             new RootfsInstaller.Callback() {
                 @Override public void onSuccess(RootfsInstaller.Distro d) {
@@ -235,7 +235,7 @@ public class MainActivity extends Activity {
 
     private RootfsInstaller.Distro currentDistro() {
         RootfsInstaller.Distro d = RootfsInstaller.installedDistro(this);
-        return d != null ? d : RootfsInstaller.Distro.UBUNTU;
+        return d != null ? d : RootfsInstaller.Distro.DEBIAN;
     }
 
     // ---- Drawer (sessions panel) ----
