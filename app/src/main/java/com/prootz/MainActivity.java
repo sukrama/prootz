@@ -449,12 +449,36 @@ public class MainActivity extends Activity {
             row1.addView(btn);
         }
 
-        // Row 2: all gold
+        // Row 2: all gold — hold-to-repeat arrows (60ms)
         String[][] r2 = {{"\u2191",null},{"\u2190",null},{"\u2192",null},{"\u2193",null}};
-        for (String[] k : r2) {
-            KeyButton btn = new KeyButton(this, k[0], true);
+        for (final String[] k : r2) {
+            final String label = k[0];
             final String send = k[1];
-            btn.setOnClickListener(v -> onExtraKey(k[0], send));
+            KeyButton btn = new KeyButton(this, label, true);
+            btn.setOnTouchListener(new View.OnTouchListener() {
+                private final Runnable mRepeater = new Runnable() {
+                    @Override
+                    public void run() {
+                        onExtraKey(label, send);
+                        btn.postDelayed(this, 60);
+                    }
+                };
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            onExtraKey(label, send);
+                            btn.postDelayed(mRepeater, 60);
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL:
+                            btn.removeCallbacks(mRepeater);
+                            return true;
+                        default:
+                            return false;
+                    }
+                }
+            });
             row2.addView(btn);
         }
         String[][] r2b = {{"/","/"},{"|","|"},{"~","~"}};
