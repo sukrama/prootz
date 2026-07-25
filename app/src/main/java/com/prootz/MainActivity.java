@@ -416,13 +416,12 @@ public class MainActivity extends Activity {
         LinearLayout row1 = findViewById(R.id.keys_row1);
         LinearLayout row2 = findViewById(R.id.keys_row2);
 
-        // Hamburger button (leftmost, row1) -> opens drawer
-        KeyButton hamburger = new KeyButton(this, "\u2261", false);
-        hamburger.setOnClickListener(v -> toggleDrawer());
-        row1.addView(hamburger);
+        // Big ☰ on the left, spanning full keys height — opens drawer
+        LinearLayout hamburgerPanel = findViewById(R.id.hamburger_panel);
+        hamburgerPanel.setOnClickListener(v -> toggleDrawer());
 
         // Row 1: all blue
-        String[][] r1 = {{"ESC",null},{"TAB","\t"}};
+        String[][] r1 = {{"ESC",null}};
         for (String[] k : r1) {
             KeyButton btn = new KeyButton(this, k[0], false);
             final String send = k[1];
@@ -436,6 +435,11 @@ public class MainActivity extends Activity {
         mAltBtn.setOnClickListener(v  -> { mAltActive  = !mAltActive;  mAltBtn.setActive(mAltActive); });
         row1.addView(mCtrlBtn);
         row1.addView(mAltBtn);
+
+        // TAB after CTRL+ALT
+        KeyButton tabBtn = new KeyButton(this, "TAB", false);
+        tabBtn.setOnClickListener(v -> onExtraKey("TAB", "\t"));
+        row1.addView(tabBtn);
 
         String[][] r1b = {{"HOME",null},{"END",null}};
         for (String[] k : r1b) {
