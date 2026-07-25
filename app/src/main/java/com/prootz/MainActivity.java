@@ -450,7 +450,7 @@ public class MainActivity extends Activity {
         }
 
         // Row 2: all gold
-        String[][] r2 = {{"\u2191",null},{"\u2193",null},{"\u2190",null},{"\u2192",null}};
+        String[][] r2 = {{"\u2191",null},{"\u2190",null},{"\u2192",null},{"\u2193",null}};
         for (String[] k : r2) {
             KeyButton btn = new KeyButton(this, k[0], true);
             final String send = k[1];
