@@ -103,6 +103,11 @@ public class ProotzDocumentsProvider extends DocumentsProvider {
     @Override
     public boolean onCreate() { return true; }
 
+    @Override
+    public boolean isChildDocument(String parentDocumentId, String documentId) {
+        return documentId.startsWith(parentDocumentId);
+    }
+
     private void includeFile(MatrixCursor result, String docId, File file) {
         if (docId == null && file != null) docId = getDocIdForFile(file);
         if (docId == null) return;
