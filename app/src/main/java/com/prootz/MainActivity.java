@@ -180,7 +180,7 @@ public class MainActivity extends Activity {
 
         String[] baseArgs = {
             prootExec.getAbsolutePath(),
-            "--root-id", "--kill-on-exit", "--link2symlink", "--sysvipc",
+            "--root-id", "--kill-on-exit", "--sysvipc",
             "--kernel-release=6.2.1-PRoot-Distro",
             "-r", rootfsDir.getAbsolutePath(),
             "-b", "/dev", "-b", "/proc", "-b", "/sys"
