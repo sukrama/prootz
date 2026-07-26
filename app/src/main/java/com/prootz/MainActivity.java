@@ -188,7 +188,7 @@ public class MainActivity extends Activity {
 
         java.util.ArrayList<String> args = new java.util.ArrayList<>();
         args.add(prootExec.getAbsolutePath());
-        args.add("--root-id");
+        args.add("--change-id=0:0");
         args.add("--kill-on-exit");
         args.add("--sysvipc");
         args.add("-L");
