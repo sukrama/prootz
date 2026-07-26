@@ -175,34 +175,97 @@ public class MainActivity extends Activity {
         File tmpDir = new File(filesDir, "tmp");
         tmpDir.mkdirs();
 
+        // Prepare fake sysdata for /proc/* files that are unreadable on Android
+        File sysdataDir = new File(filesDir, "sysdata");
+        sysdataDir.mkdirs();
+        prepareSysdata(sysdataDir);
+
         String shell = new File(rootfsDir, distro.shell.substring(1)).exists()
             ? distro.shell : "/bin/sh";
 
-        String[] baseArgs = {
-            prootExec.getAbsolutePath(),
-            "--root-id", "--kill-on-exit", "--sysvipc",
-            "--kernel-release=6.2.1-PRoot-Distro",
-            "-r", rootfsDir.getAbsolutePath(),
-            "-b", "/dev", "-b", "/proc", "-b", "/sys"
-        };
-        java.util.ArrayList<String> args = new java.util.ArrayList<>(java.util.Arrays.asList(baseArgs));
+        String kernelRelease = "Linux localhost 6.2.1-PRoot-Distro #1 SMP PREEMPT_DYNAMIC "
+            + "Fri Jan 1 00:00:00 UTC 2026 aarch64 GNU/Linux";
+
+        java.util.ArrayList<String> args = new java.util.ArrayList<>();
+        args.add(prootExec.getAbsolutePath());
+        args.add("--root-id");
+        args.add("--kill-on-exit");
+        args.add("--sysvipc");
+        args.add("-L");
+        args.add("--kernel-release=" + kernelRelease);
+        args.add("-r");
+        args.add(rootfsDir.getAbsolutePath());
+        args.add("-w");
+        args.add("/root");
+
+        // Baseline bind mounts
+        args.add("-b"); args.add("/dev");
+        args.add("-b"); args.add("/proc");
+        args.add("-b"); args.add("/sys");
+        args.add("-b"); args.add("/dev/urandom:/dev/random");
+
+        // /dev/shm = tmp dir for POSIX shared memory
+        args.add("-b"); args.add(tmpDir.getAbsolutePath() + ":/dev/shm");
+
+        // Empty /sys/fs/selinux to prevent tools from crashing
+        File selinuxDir = new File(sysdataDir, "sys_empty");
+        selinuxDir.mkdirs();
+        args.add("-b"); args.add(selinuxDir.getAbsolutePath() + ":/sys/fs/selinux");
+
+        // Fake /proc/* files (bind only if they exist — if real ones are readable they take priority)
+        for (String[] f : new String[][]{
+            {"loadavg", "/proc/loadavg"},
+            {"stat", "/proc/stat"},
+            {"uptime", "/proc/uptime"},
+            {"version", "/proc/version"},
+            {"vmstat", "/proc/vmstat"},
+        }) {
+            File fake = new File(sysdataDir, f[0]);
+            if (fake.isFile()) {
+                args.add("-b"); args.add(fake.getAbsolutePath() + ":" + f[1]);
+            }
+        }
+
+        // Android system binds (if accessible)
+        for (String p : new String[]{"/apex", "/odm", "/product", "/system",
+                                      "/system_ext", "/vendor"}) {
+            File df = new File(p);
+            if (df.isDirectory() && df.canExecute()) {
+                args.add("-b"); args.add(p);
+            }
+        }
+        for (String p : new String[]{"/linkerconfig/ld.config.txt",
+                                      "/linkerconfig/com.android.art/ld.config.txt",
+                                      "/plat_property_contexts",
+                                      "/property_contexts"}) {
+            File pf = new File(p);
+            if (pf.isFile() && pf.canRead()) {
+                args.add("-b"); args.add(p);
+            }
+        }
 
         // Shared storage bind mounts (only when the user has set up storage access)
         if (isStorageEnabled()) addStorageBinds(args);
 
-        for (String a : new String[]{
-            "-w", "/root",
-            "/usr/bin/env", "-i",
-            "HOME=/root", "USER=root", "LOGNAME=root",
-            "SHELL=" + shell,
-            "TERM=xterm-256color", "COLORTERM=truecolor",
-            "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
-            "TMPDIR=/tmp",
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            shell, "-l"}) {
-            args.add(a);
-        }
+        // Inner command: /usr/bin/env -i with environment
+        args.add("/usr/bin/env");
+        args.add("-i");
+        args.add("HOME=/root");
+        args.add("USER=root");
+        args.add("LOGNAME=root");
+        args.add("SHELL=" + shell);
+        args.add("TERM=xterm-256color");
+        args.add("COLORTERM=truecolor");
+        args.add("LANG=C.UTF-8");
+        args.add("LC_ALL=C.UTF-8");
+        args.add("TMPDIR=/tmp");
+        args.add("MOZ_FAKE_NO_SANDBOX=1");
+        args.add("PULSE_SERVER=127.0.0.1");
+        args.add("PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/system/bin:/system/xbin");
+        args.add(shell);
+        args.add("-l");
 
+        // Environment variables passed to proot
         java.util.ArrayList<String> envList = new java.util.ArrayList<>();
         envList.add("PROOT_LOADER=" + prootLoader.getAbsolutePath());
         envList.add("PROOT_TMP_DIR=" + tmpDir.getAbsolutePath());
@@ -224,6 +287,113 @@ public class MainActivity extends Activity {
         if (mService.getSessions().size() == 1) {
             mService.goForeground();
         }
+    }
+
+    /** Create fake /proc/* files that are often unreadable on Android due to SELinux. */
+    private void prepareSysdata(File dir) {
+        // /proc/loadavg
+        writeFakeFile(new File(dir, "loadavg"), "0.12 0.07 0.02 2/165 765\n");
+        // /proc/uptime
+        writeFakeFile(new File(dir, "uptime"), "124.08 932.80\n");
+        // /proc/version
+        writeFakeFile(new File(dir, "version"),
+            "Linux version 6.2.1-PRoot-Distro (root@localhost) "
+            + "(gcc (Debian 12.2.0-14) 12.2.0, GNU ld (GNU Binutils) 2.40) "
+            + "#1 SMP PREEMPT_DYNAMIC Fri Jan 1 00:00:00 UTC 2026\n");
+        // /proc/vmstat
+        StringBuilder vmstat = new StringBuilder();
+        vmstat.append("nr_free_pages 512345\n");
+        vmstat.append("nr_alloc_batch 1234\n");
+        vmstat.append("nr_inactive_anon 12345\n");
+        vmstat.append("nr_active_anon 23456\n");
+        vmstat.append("nr_inactive_file 34567\n");
+        vmstat.append("nr_active_file 45678\n");
+        vmstat.append("nr_unevictable 0\n");
+        vmstat.append("nr_mlock 0\n");
+        vmstat.append("nr_anon_pages 12345\n");
+        vmstat.append("nr_mapped 7890\n");
+        vmstat.append("nr_file_pages 56789\n");
+        vmstat.append("nr_dirty 123\n");
+        vmstat.append("nr_writeback 0\n");
+        vmstat.append("nr_slab_reclaimable 4567\n");
+        vmstat.append("nr_slab_unreclaimable 1234\n");
+        vmstat.append("nr_page_table_pages 567\n");
+        vmstat.append("nr_kernel_stack 89\n");
+        vmstat.append("nr_unstable 0\n");
+        vmstat.append("nr_bounce 0\n");
+        vmstat.append("nr_vmscan_write 0\n");
+        vmstat.append("nr_vmscan_immediate_reclaim 0\n");
+        vmstat.append("nr_writeback_temp 0\n");
+        vmstat.append("nr_isolated_anon 0\n");
+        vmstat.append("nr_isolated_file 0\n");
+        vmstat.append("nr_shmem 1234\n");
+        vmstat.append("nr_dirtied 67890\n");
+        vmstat.append("nr_written 65432\n");
+        vmstat.append("nr_kernel_misc_reclaimable 0\n");
+        vmstat.append("nr_numa_hit 78901\n");
+        vmstat.append("nr_numa_miss 0\n");
+        vmstat.append("nr_numa_foreign 0\n");
+        vmstat.append("nr_numa_interleave 3456\n");
+        vmstat.append("nr_numa_local 78901\n");
+        vmstat.append("nr_numa_other 0\n");
+        vmstat.append("pgpgin 123456\n");
+        vmstat.append("pgpgout 234567\n");
+        vmstat.append("pswpin 0\n");
+        vmstat.append("pswpout 0\n");
+        vmstat.append("pgalloc_dma 0\n");
+        vmstat.append("pgalloc_dma32 123456\n");
+        vmstat.append("pgalloc_normal 234567\n");
+        vmstat.append("pgalloc_movable 0\n");
+        vmstat.append("pgfree 345678\n");
+        vmstat.append("pgactivate 12345\n");
+        vmstat.append("pgdeactivate 6789\n");
+        vmstat.append("pgfault 456789\n");
+        vmstat.append("pgmajfault 1234\n");
+        vmstat.append("pgrefill_dma 0\n");
+        vmstat.append("pgrefill_dma32 5678\n");
+        vmstat.append("pgrefill_normal 8901\n");
+        vmstat.append("pgrefill_movable 0\n");
+        vmstat.append("pgsteal_kswapd_dma 0\n");
+        vmstat.append("pgsteal_kswapd_dma32 2345\n");
+        vmstat.append("pgsteal_kswapd_normal 3456\n");
+        vmstat.append("pgsteal_kswapd_movable 0\n");
+        vmstat.append("pgsteal_direct_dma 0\n");
+        vmstat.append("pgsteal_direct_dma32 123\n");
+        vmstat.append("pgsteal_direct_normal 234\n");
+        vmstat.append("pgsteal_direct_movable 0\n");
+        vmstat.append("pgscan_kswapd_dma 0\n");
+        vmstat.append("pgscan_kswapd_dma32 2345\n");
+        vmstat.append("pgscan_kswapd_normal 3456\n");
+        vmstat.append("pgscan_kswapd_movable 0\n");
+        vmstat.append("pgscan_direct_dma 0\n");
+        vmstat.append("pgscan_direct_dma32 123\n");
+        vmstat.append("pgscan_direct_normal 234\n");
+        vmstat.append("pgscan_direct_movable 0\n");
+        vmstat.append("oom_kill 0\n");
+        writeFakeFile(new File(dir, "vmstat"), vmstat.toString());
+        // /proc/stat — 8-core CPU
+        StringBuilder stat = new StringBuilder();
+        stat.append("cpu  123456 2345 345678 9876543 12345 6789 1234 0 0 0\n");
+        for (int i = 0; i < 8; i++) {
+            stat.append("cpu").append(i).append(" 15432 293 43210 1234567 1543 848 154 0 0 0\n");
+        }
+        stat.append("intr 1234567 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n");
+        stat.append("ctxt 2345678\n");
+        stat.append("btime 1700000000\n");
+        stat.append("processes 12345\n");
+        stat.append("procs_running 2\n");
+        stat.append("procs_blocked 0\n");
+        stat.append("softirq 123456 0 34567 0 23456 0 0 0 0 0 0\n");
+        writeFakeFile(new File(dir, "stat"), stat.toString());
+    }
+
+    private void writeFakeFile(File f, String content) {
+        try {
+            f.getParentFile().mkdirs();
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                out.write(content.getBytes("UTF-8"));
+            }
+        } catch (Exception ignored) {}
     }
 
     private void switchToSession(TerminalSession session) {
