@@ -21,8 +21,10 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -102,8 +104,50 @@ public class MainActivity extends Activity {
             createNewSession(installed);
             return;
         }
+        showDistroPicker();
+    }
+
+    /** First-run dialog: let the user pick which distro to install. */
+    private void showDistroPicker() {
+        final RootfsInstaller.Distro[] distros = RootfsInstaller.Distro.values();
+        String[] names = new String[distros.length];
+        for (int i = 0; i < distros.length; i++) names[i] = distros[i].displayName;
+
+        Dialog d = new Dialog(this);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        d.setContentView(R.layout.dialog_distro_picker);
+        d.setCancelable(false);
+        if (d.getWindow() != null) {
+            d.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            d.getWindow().setLayout(
+                (int) (getResources().getDisplayMetrics().widthPixels * 0.86f),
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        }
+
+        Spinner spinner = d.findViewById(R.id.distro_spinner);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.item_distro, names);
+        adapter.setDropDownViewResource(R.layout.item_distro);
+        spinner.setAdapter(adapter);
+
+        // Default selection: Debian
+        for (int i = 0; i < distros.length; i++) {
+            if (distros[i] == RootfsInstaller.Distro.DEBIAN) { spinner.setSelection(i); break; }
+        }
+
+        d.findViewById(R.id.install_button).setOnClickListener(v -> {
+            int pos = spinner.getSelectedItemPosition();
+            RootfsInstaller.Distro chosen = distros[
+                pos >= 0 && pos < distros.length ? pos : 0];
+            d.dismiss();
+            startInstall(chosen);
+        });
+
+        d.show();
+    }
+
+    private void startInstall(RootfsInstaller.Distro distro) {
         showInstallDialog();
-        RootfsInstaller.install(this, RootfsInstaller.Distro.DEBIAN,
+        RootfsInstaller.install(this, distro,
             (stage, pct, detail) -> runOnUiThread(() -> updateInstallDialog(stage, pct, detail)),
             new RootfsInstaller.Callback() {
                 @Override public void onSuccess(RootfsInstaller.Distro d) {

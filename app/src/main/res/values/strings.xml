@@ -5,6 +5,7 @@
     <string name="distro_debian">Debian (Trixie)</string>
     <string name="distro_ubuntu">Ubuntu (25.10)</string>
     <string name="install_title">Choose Distribution</string>
+    <string name="install_subtitle">Pick a Linux distribution to install. This runs once.</string>
     <string name="install_btn">Install</string>
     <string name="installing">Installing…</string>
 </resources>
