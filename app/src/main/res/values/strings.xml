@@ -8,4 +8,9 @@
     <string name="install_subtitle">Pick a Linux distribution to install. This runs once.</string>
     <string name="install_btn">Install</string>
     <string name="installing">Installing…</string>
+    <string name="sessions_title">Sessions</string>
+    <string name="sessions_new">New session</string>
+    <string name="sessions_setup_storage">Setup storage</string>
+    <string name="cd_install_subtitle">A Linux distribution will be installed into app-private storage. Choose one to continue.</string>
+    <string name="cd_distro_hint">Distribution</string>
 </resources>

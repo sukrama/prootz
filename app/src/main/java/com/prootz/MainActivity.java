@@ -10,7 +10,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.Gravity;
@@ -23,12 +22,17 @@ import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+
 import androidx.drawerlayout.widget.DrawerLayout;
+
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.color.DynamicColors;
+import com.google.android.material.color.MaterialColors;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -43,7 +47,6 @@ public class MainActivity extends Activity {
     private TerminalView mTerminalView;
     private TerminalService mService;
     private DrawerLayout mDrawerLayout;
-    private LinearLayout mDrawerPanel;
     private LinearLayout mDrawerSessionList;
     private int mFontSize = 13;
     private static final int MIN_FONT_SIZE = 8;
@@ -56,7 +59,7 @@ public class MainActivity extends Activity {
 
     private Dialog mInstallDialog;
     private TextView mInstStage, mInstPercent, mInstDetail;
-    private ProgressBar mInstBar;
+    private LinearProgressIndicator mInstBar;
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -78,18 +81,19 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        DynamicColors.applyToActivityIfAvailable(this);
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
 
         mDrawerLayout = findViewById(R.id.drawer_layout);
-        mDrawerPanel = findViewById(R.id.drawer_panel);
         mDrawerSessionList = findViewById(R.id.drawer_session_list);
         mTerminalView = findViewById(R.id.terminal_view);
         mTerminalView.setTerminalViewClient(new ProotzViewClient());
         mTerminalView.setTextSize(mFontSize);
         mTerminalView.requestFocus();
 
+        setupToolbar();
         setupDrawer();
         setupExtraKeys();
 
@@ -124,20 +128,22 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         }
 
-        Spinner spinner = d.findViewById(R.id.distro_spinner);
+        MaterialAutoCompleteTextView spinner = d.findViewById(R.id.distro_spinner);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.item_distro, names);
-        adapter.setDropDownViewResource(R.layout.item_distro);
         spinner.setAdapter(adapter);
+        spinner.setText(names[0], false);
 
-        // Default selection: Debian
+        int defaultIdx = 0;
         for (int i = 0; i < distros.length; i++) {
-            if (distros[i] == RootfsInstaller.Distro.DEBIAN) { spinner.setSelection(i); break; }
+            if (distros[i] == RootfsInstaller.Distro.DEBIAN) { defaultIdx = i; break; }
         }
+        spinner.setText(distros[defaultIdx].displayName, false);
+        final int[] selectedPos = { defaultIdx };
+        spinner.setOnItemClickListener((parent, view, position, id) -> selectedPos[0] = position);
 
         d.findViewById(R.id.install_button).setOnClickListener(v -> {
-            int pos = spinner.getSelectedItemPosition();
             RootfsInstaller.Distro chosen = distros[
-                pos >= 0 && pos < distros.length ? pos : 0];
+                selectedPos[0] >= 0 && selectedPos[0] < distros.length ? selectedPos[0] : 0];
             d.dismiss();
             startInstall(chosen);
         });
@@ -453,6 +459,11 @@ public class MainActivity extends Activity {
         return d != null ? d : RootfsInstaller.Distro.DEBIAN;
     }
 
+    private void setupToolbar() {
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setNavigationOnClickListener(v -> toggleDrawer());
+    }
+
     // ---- Drawer (sessions panel) ----
 
     private void setupDrawer() {
@@ -557,6 +568,7 @@ public class MainActivity extends Activity {
         mDrawerSessionList.removeAllViews();
         List<TerminalSession> sessions = mService.getSessions();
         TerminalSession current = mTerminalView.mTermSession;
+        View anyChild = mDrawerSessionList;
 
         for (int i = 0; i < sessions.size(); i++) {
             final TerminalSession s = sessions.get(i);
@@ -568,16 +580,22 @@ public class MainActivity extends Activity {
             row.setPadding(dp(16), dp(12), dp(12), dp(12));
 
             if (s == current) {
-                GradientDrawable sel = new GradientDrawable();
-                sel.setColor(Color.parseColor("#1A2235"));
-                row.setBackground(sel);
+                row.setBackgroundColor(MaterialColors.getColor(this,
+                    com.google.android.material.R.attr.colorSecondaryContainer,
+                    Color.parseColor("#1565C0")));
             }
 
             // Session icon (circle)
             View dot = new View(this);
-            GradientDrawable dotBg = new GradientDrawable();
-            dotBg.setShape(GradientDrawable.OVAL);
-            dotBg.setColor(s.isRunning() ? Color.parseColor("#4CAF50") : Color.parseColor("#9E9E9E"));
+            android.graphics.drawable.GradientDrawable dotBg =
+                new android.graphics.drawable.GradientDrawable();
+            dotBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            int dotColor = s.isRunning()
+                ? MaterialColors.getColor(this,
+                    com.google.android.material.R.attr.colorTertiary, Color.parseColor("#4CAF50"))
+                : MaterialColors.getColor(this,
+                    com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#9E9E9E"));
+            dotBg.setColor(dotColor);
             dot.setBackground(dotBg);
             LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(dp(8), dp(8));
             dotLp.rightMargin = dp(10);
@@ -588,7 +606,11 @@ public class MainActivity extends Activity {
             TextView label = new TextView(this);
             String name = s.mSessionName != null ? s.mSessionName : ("Session " + (i + 1));
             label.setText(name);
-            label.setTextColor(s == current ? Color.parseColor("#42A5F5") : Color.parseColor("#F0F0F0"));
+            label.setTextColor(s == current
+                ? MaterialColors.getColor(this,
+                    com.google.android.material.R.attr.colorPrimary, Color.parseColor("#FFB300"))
+                : MaterialColors.getColor(this,
+                    com.google.android.material.R.attr.colorOnSurface, Color.parseColor("#F0F0F0")));
             label.setTextSize(14f);
             label.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             row.addView(label);
@@ -596,7 +618,8 @@ public class MainActivity extends Activity {
             // Delete button
             TextView del = new TextView(this);
             del.setText("\u2715");
-            del.setTextColor(Color.parseColor("#9E9E9E"));
+            del.setTextColor(MaterialColors.getColor(this,
+                com.google.android.material.R.attr.colorOnSurfaceVariant, Color.parseColor("#9E9E9E")));
             del.setTextSize(16f);
             del.setPadding(dp(12), 0, dp(4), 0);
             del.setOnClickListener(v -> {
@@ -630,10 +653,6 @@ public class MainActivity extends Activity {
     private void setupExtraKeys() {
         LinearLayout row1 = findViewById(R.id.keys_row1);
         LinearLayout row2 = findViewById(R.id.keys_row2);
-
-        // Big ☰ on the left, spanning full keys height — opens drawer
-        LinearLayout hamburgerPanel = findViewById(R.id.hamburger_panel);
-        hamburgerPanel.setOnClickListener(v -> toggleDrawer());
 
         // Row 1: all blue
         String[][] r1 = {{"ESC",null}};

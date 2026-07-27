@@ -1,23 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Legacy aliases used by Java code and existing drawables -->
-    <color name="bg">#0A0E1A</color>
-    <color name="surface">#111827</color>
-    <color name="surface2">#1A2235</color>
-    <color name="gold">#FFB300</color>
-    <color name="gold_dim">#CC8800</color>
-    <color name="blue">#1565C0</color>
-    <color name="blue_light">#42A5F5</color>
-    <color name="text_primary">#F0F0F0</color>
-    <color name="text_secondary">#9E9E9E</color>
-    <color name="key_bg">#162032</color>
-    <color name="key_border">#1E3050</color>
-    <color name="divider">#1E2D40</color>
-    <color name="ubuntu_orange">#E95420</color>
-    <color name="ubuntu_white">#FFFFFF</color>
-
-    <!-- Material 3 surface / on-surface tones (dark scheme) -->
-    <color name="md_surface">#111827</color>
+    <!-- Material 3 dark scheme (default; light uses values/colors.xml) -->
+    <color name="md_surface">#10131C</color>
     <color name="md_surface_variant">#1A2235</color>
     <color name="md_surface_container">#162032</color>
     <color name="md_on_surface">#E6E1E5</color>
@@ -25,7 +9,6 @@
     <color name="md_outline">#938F99</color>
     <color name="md_outline_variant">#1E2D40</color>
 
-    <!-- M3 primary/secondary/tertiary (gold accent + blue secondary) -->
     <color name="md_primary">#FFB300</color>
     <color name="md_on_primary">#1F1500</color>
     <color name="md_primary_container">#5A3F00</color>

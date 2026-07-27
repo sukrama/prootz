@@ -1,23 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="ProotzTheme" parent="Theme.AppCompat.NoActionBar">
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Base Material 3 DayNight theme. NoActionBar so we can host MaterialToolbar manually. -->
+    <style name="ProotzTheme" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:colorBackground">@color/bg</item>
-        <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/bg</item>
-        <item name="android:textColorPrimary">@color/text_primary</item>
-        <item name="android:textColorSecondary">@color/text_secondary</item>
-        <item name="colorAccent">@color/gold</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:textColorPrimary">@color/md_on_surface</item>
+        <item name="android:textColorSecondary">@color/md_on_surface_variant</item>
+        <item name="colorPrimary">@color/md_primary</item>
+        <item name="colorOnPrimary">@color/md_on_primary</item>
+        <item name="colorPrimaryContainer">@color/md_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/md_on_primary_container</item>
+        <item name="colorSecondary">@color/md_secondary</item>
+        <item name="colorOnSecondary">@color/md_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/md_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/md_on_secondary_container</item>
+        <item name="colorTertiary">@color/md_tertiary</item>
+        <item name="colorOnTertiary">@color/md_on_tertiary</item>
+        <item name="colorSurface">@color/md_surface</item>
+        <item name="colorSurfaceVariant">@color/md_surface_variant</item>
+        <item name="colorOnSurface">@color/md_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/md_on_surface_variant</item>
+        <item name="colorOutline">@color/md_outline</item>
+        <item name="colorOutlineVariant">@color/md_outline_variant</item>
+        <item name="colorAccent">@color/md_primary</item>
         <item name="colorControlHighlight">#33FFB300</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
     </style>
 
+    <!-- M3 toolbar style: edge-to-edge top bar with subtle surface tone. -->
+    <style name="ProotzToolbar" parent="Widget.Material3.Toolbar.Surface">
+        <item name="android:background">?attr/colorSurface</item>
+        <item name="titleTextColor">?attr/colorOnSurface</item>
+        <item name="subtitleTextColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <!-- M3 filled button: install / install-action -->
+    <style name="ProotzButton" parent="Widget.Material3.Button">
+        <item name="android:textSize">14sp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">12dp</item>
+    </style>
+
+    <!-- M3 outlined button: secondary actions (new session) -->
+    <style name="ProotzButton.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textSize">14sp</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="strokeColor">?attr/colorOutlineVariant</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <!-- M3 text button: drawer rows (sessions) -->
+    <style name="ProotzButton.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <!-- Extra-keys (kept custom; sized to stay under terminal). -->
     <style name="KeyButton">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">match_parent</item>
         <item name="android:minWidth">44dp</item>
         <item name="android:paddingHorizontal">10dp</item>
         <item name="android:textSize">11sp</item>
-        <item name="android:textColor">@color/gold</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
         <item name="android:background">@drawable/key_bg</item>
         <item name="android:gravity">center</item>
         <item name="android:layout_marginHorizontal">2dp</item>
@@ -26,21 +78,29 @@
 
     <style name="DialogTitle">
         <item name="android:textSize">18sp</item>
-        <item name="android:textColor">@color/gold</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
     <style name="DialogBody">
         <item name="android:textSize">13sp</item>
-        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
     </style>
 
     <style name="InstallButton">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">48dp</item>
         <item name="android:textSize">15sp</item>
-        <item name="android:textColor">@color/bg</item>
+        <item name="android:textColor">?attr/colorOnPrimary</item>
         <item name="android:background">@drawable/btn_gold</item>
         <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- M3 surface card: used by dialogs and drawer header. -->
+    <style name="ProotzCard" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">?attr/colorSurfaceVariant</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="contentPadding">20dp</item>
     </style>
 </resources>

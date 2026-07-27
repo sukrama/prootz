@@ -1,46 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/ProotzCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@drawable/dialog_bg"
-    android:padding="24dp">
+    app:cardBackgroundColor="?attr/colorSurfaceVariant"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="0dp"
+    app:strokeColor="?attr/colorOutlineVariant"
+    app:strokeWidth="1dp">
 
-    <TextView
-        android:id="@+id/install_stage"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/installing"
-        style="@style/DialogTitle" />
-
-    <TextView
-        android:id="@+id/install_percent"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="0%"
-        android:textColor="@color/gold"
-        android:textSize="34sp"
-        android:fontFamily="sans-serif-medium" />
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <ProgressBar
-        android:id="@+id/install_bar"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="10dp"
-        android:layout_marginTop="6dp"
-        android:max="100"
-        android:progress="0"
-        android:indeterminateTint="@color/gold"
-        android:progressDrawable="@drawable/progress_drawable" />
+        <TextView
+            android:id="@+id/install_stage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/installing"
+            android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+            android:textColor="?attr/colorOnSurface" />
 
-    <TextView
-        android:id="@+id/install_detail"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:text=""
-        android:maxLines="2"
-        android:ellipsize="middle"
-        style="@style/DialogBody" />
-</LinearLayout>
+        <TextView
+            android:id="@+id/install_percent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="0%"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="34sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/install_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:max="100"
+            android:progress="0"
+            app:indicatorColor="?attr/colorPrimary"
+            app:trackColor="?attr/colorSurfaceContainer"
+            app:trackCornerRadius="6dp"
+            app:trackThickness="10dp" />
+
+        <TextView
+            android:id="@+id/install_detail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text=""
+            android:maxLines="2"
+            android:ellipsize="middle"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
